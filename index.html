@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jazykový Master (Hotovo)</title>
+    <title>Jazykový Master (v10.0)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -16,37 +16,43 @@
         .hidden { display: none !important; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         
-        /* Tlačidlá */
-        .btn { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 18px; font-weight: bold; margin-top: 10px; }
+        /* Buttons */
+        .btn { background: #2563eb; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; transition: 0.2s; }
         .btn:hover { background: #1d4ed8; }
         .btn-outline { background: transparent; border: 2px solid #ddd; padding: 8px 15px; border-radius: 5px; cursor: pointer; color: #555; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
 
-        /* Dashboard */
-        .stats-row { display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; }
-        .stat-val { font-size: 1.4em; font-weight: bold; color: #2563eb; }
+        /* Dashboard Header */
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         
-        /* Navigácia */
+        /* Stats */
+        .stats-row { display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 10px; }
+        .stat-val { font-size: 1.3em; font-weight: bold; color: #2563eb; }
+        
+        /* Tabs */
         .nav-tabs { display: flex; gap: 5px; margin-bottom: 20px; }
         .nav-btn { flex: 1; padding: 12px; background: #e5e7eb; border: none; cursor: pointer; border-radius: 8px; font-weight: bold; color: #666; }
         .nav-btn.active { background: #2563eb; color: white; }
 
-        /* Lekcie */
-        .level-header { border-bottom: 2px solid #ddd; margin: 20px 0 10px 0; padding-bottom: 5px; font-weight: bold; font-size: 1.2em; }
+        /* Level Selector Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
+        .level-option { background: #f0f9ff; border: 1px solid #bae6fd; padding: 15px; margin: 10px 0; border-radius: 8px; cursor: pointer; font-weight: bold; color: #0284c7; }
+        .level-option:hover { background: #e0f2fe; }
+
+        /* Lessons */
+        .level-header { border-bottom: 2px solid #ddd; margin: 20px 0 10px 0; padding-bottom: 5px; font-weight: bold; font-size: 1.2em; color: #444; }
         .level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .lesson-card { background: white; border: 2px solid #e5e7eb; padding: 15px 5px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .lesson-card:hover { transform: translateY(-2px); border-color: #2563eb; }
+        .lesson-card { background: white; border: 2px solid #e5e7eb; padding: 15px 5px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 0.9em; }
         .lesson-card.unlocked { border-color: #2563eb; color: #2563eb; font-weight: bold; }
         .lesson-card.completed { background: #d1fae5; border-color: #10b981; color: #10b981; }
         .lesson-card.locked { background: #f3f4f6; color: #ccc; pointer-events: none; }
 
-        /* Slovník */
-        .vocab-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .vocab-item.mastered { background: #f0fdf4; border-left: 4px solid #10b981; }
-
-        /* Cvičenie */
-        .word-btn { background: #eff6ff; padding: 10px 15px; margin: 5px; border: 1px solid #bfdbfe; border-radius: 20px; cursor: pointer; display: inline-block; color: #2563eb; }
+        /* Lesson UI */
+        .word-btn { background: #eff6ff; padding: 10px 15px; margin: 5px; border: 1px solid #bfdbfe; border-radius: 20px; cursor: pointer; display: inline-block; color: #2563eb; user-select: none; }
         .word-btn.used { opacity: 0.4; background: #ccc; pointer-events: none; color: #666; }
-        input[type="text"] { width: 100%; padding: 15px; font-size: 18px; margin-top: 15px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; }
+        input[type="text"] { width: 100%; padding: 15px; font-size: 18px; margin-top: 15px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+        input[type="text"]:focus { border-color: #2563eb; }
         .feedback { text-align: center; font-weight: bold; margin: 15px 0; min-height: 30px; font-size: 1.1em; }
     </style>
 </head>
@@ -55,22 +61,29 @@
     <div id="screen-login" class="container" style="text-align: center; margin-top: 100px;">
         <h1 style="color: #2563eb;">🇬🇧 Jazykový Master</h1>
         <div class="card" style="max-width: 400px; margin: 0 auto;">
-            <p>Verzia 9.0 (Hotovo)</p>
+            <p>Prihlás sa pre uloženie postupu</p>
             <button onclick="app.login()" class="btn">Prihlásiť sa cez Google</button>
             <div id="login-log" style="color: red; margin-top: 10px; font-size: 12px;"></div>
         </div>
     </div>
 
     <div id="screen-dashboard" class="container hidden">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div>
-                <strong>👤 <span id="user-email">...</span></strong>
-                <select id="lang-select" onchange="app.changeLang(this.value)" style="margin-left:10px; padding:5px;">
-                    <option value="en">🇬🇧 Angličtina</option>
-                    <option value="de">🇩🇪 Nemčina</option>
-                </select>
+        
+        <div class="header-bar">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:35px; height:35px; background:#ddd; border-radius:50%; display:flex; align-items:center; justify-content:center;">👤</div>
+                <div>
+                    <div id="user-email" style="font-weight:bold; font-size:0.9em;">...</div>
+                    <select id="lang-select" onchange="app.changeLang(this.value)" style="border:none; bg:none; font-size:0.8em; color:#666; cursor:pointer;">
+                        <option value="en">🇬🇧 Angličtina</option>
+                        <option value="de">🇩🇪 Nemčina</option>
+                    </select>
+                </div>
             </div>
-            <button onclick="app.logout()" style="background:red; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Odhlásiť</button>
+            <div>
+                <button onclick="app.toggleLevelPicker()" class="btn-outline btn-sm" title="Zmeniť úroveň">⚙️ Úroveň</button>
+                <button onclick="app.logout()" style="background:none; border:none; color:red; cursor:pointer; font-size:1.2em; margin-left:5px;">🚪</button>
+            </div>
         </div>
 
         <div class="stats-row">
@@ -91,7 +104,7 @@
 
         <div id="tab-vocab" class="hidden">
             <div class="card" style="text-align:center;">
-                <p style="color:#666; font-size:12px;">Slovíčka sa pridávajú automaticky z lekcií.</p>
+                <p style="color:#666; font-size:12px;">Slová sa pridávajú automaticky.</p>
                 <button onclick="app.practiceVocab()" class="btn" style="background:orange;">⚡ Skúšať slovíčka (+1 bod)</button>
             </div>
             <div id="vocab-list" class="card"></div>
@@ -102,15 +115,15 @@
         </div>
 
         <div style="text-align:center; margin-top:50px; border-top:1px solid #ccc; padding-top:20px;">
-            <p style="font-size:12px; color:#999;">ADMIN ZÓNA</p>
-            <button onclick="app.uploadData()" class="btn-outline">⬆️ Admin: Reštartovať databázu (A1-A2)</button>
+            <p style="font-size:10px; color:#aaa;">ADMINISTRÁCIA</p>
+            <button onclick="app.uploadData()" class="btn-outline" style="font-size:12px;">⬆️ Aktualizovať databázu (A1-A2)</button>
         </div>
     </div>
 
     <div id="screen-lesson" class="container hidden">
-        <button onclick="app.goHome()" class="btn-outline">⬅ Späť</button>
+        <button onclick="app.goHome()" class="btn-outline" style="margin-bottom:10px;">⬅ Späť</button>
         <div class="card">
-            <h3 id="lesson-title" style="text-align:center; margin:0;">...</h3>
+            <h3 id="lesson-title" style="text-align:center; margin:0; color:#444;">...</h3>
             <div style="background:#eee; height:10px; width:100%; margin:15px 0; border-radius:5px;">
                 <div id="progress-bar" style="background:#2563eb; height:100%; width:0%; border-radius:5px;"></div>
             </div>
@@ -119,7 +132,7 @@
             
             <div style="text-align:center;">
                 <h2 id="question-text">...</h2>
-                <button onclick="app.speakCurrent()" style="font-size:24px; border:none; background:orange; border-radius:50%; width:50px; height:50px; cursor:pointer;">🔊</button>
+                <button onclick="app.speakCurrent()" style="font-size:24px; border:none; background:orange; border-radius:50%; width:50px; height:50px; cursor:pointer; box-shadow: 0 4px 0 #e67700;">🔊</button>
             </div>
 
             <div id="interaction-area" style="margin-top:20px;"></div>
@@ -128,8 +141,23 @@
         </div>
     </div>
 
+    <div id="modal-level" class="hidden modal-overlay">
+        <div class="modal-content">
+            <h3>🎚 Vyber si úroveň</h3>
+            <p style="font-size:12px; color:#666;">Odomkne sa ti prvá lekcia z vybranej úrovne.</p>
+            
+            <div class="level-option" onclick="app.setLevel('A1')">Začiatočník (A1)</div>
+            <div class="level-option" onclick="app.setLevel('A2')">Mierne pokročilý (A2)</div>
+            <div class="level-option" onclick="app.setLevel('B1')">Stredne pokročilý (B1)</div>
+            <div class="level-option" onclick="app.setLevel('B2')">Vyššie pokročilý (B2)</div>
+            <div class="level-option" onclick="app.setLevel('C1')">Expert (C1)</div>
+
+            <button onclick="app.toggleLevelPicker()" class="btn-outline" style="margin-top:10px;">Zrušiť</button>
+        </div>
+    </div>
+
     <script>
-        // --- TVOJE ÚDAJE (Už vložené) ---
+        // --- TVOJE FIREBASE ÚDAJE ---
         const firebaseConfig = {
             apiKey: "AIzaSyDjXlW6hXeDxbFcIiSU4rAvGE3weh8uOig",
             authDomain: "mojjazykovytrener.firebaseapp.com",
@@ -139,7 +167,7 @@
             appId: "1:901887815588:web:bb73239181ff3d5d619b31"
         };
 
-        // HLAVNÁ APLIKÁCIA (Namespace "app")
+        // --- APP LOGIC ---
         const app = {
             db: null, auth: null, provider: null,
             state: { user: null, profile: null, lang: 'en', lesson: null },
@@ -150,9 +178,7 @@
                     app.db = firebase.firestore();
                     app.auth = firebase.auth();
                     app.provider = new firebase.auth.GoogleAuthProvider();
-                    console.log("Firebase OK");
                     
-                    // Auth Listener
                     app.auth.onAuthStateChanged(user => {
                         if (user) {
                             app.state.user = user;
@@ -163,24 +189,19 @@
                             app.startTimer();
                         }
                     });
-                } catch (e) {
-                    alert("Chyba inicializácie: " + e.message);
-                }
+                } catch (e) { alert("Chyba init: " + e.message); }
             },
 
             login: function() {
                 document.getElementById('login-log').innerText = "Otváram Google...";
                 app.auth.signInWithPopup(app.provider).catch(e => {
                     document.getElementById('login-log').innerText = "Chyba: " + e.message;
-                    alert(e.message);
                 });
             },
 
-            logout: function() {
-                app.auth.signOut().then(() => location.reload());
-            },
+            logout: function() { app.auth.signOut().then(() => location.reload()); },
 
-            // --- DATA LOADING ---
+            // --- DATA ---
             loadProfile: function() {
                 const ref = app.db.collection("users").doc(app.state.user.uid);
                 ref.get().then(doc => {
@@ -190,15 +211,13 @@
                             points: 0, 
                             email: app.state.user.email,
                             unlocked: {en:["A1-01"], de:["A1-01"]}, 
-                            vocab: {}, 
-                            dailyTime: 0, 
-                            lastActive: new Date().toISOString().split('T')[0] 
+                            vocab: {}, dailyTime: 0, lastActive: new Date().toISOString().split('T')[0] 
                         };
                         ref.set(app.state.profile);
                     }
                     // Fix štruktúry
                     if(!app.state.profile.vocab) app.state.profile.vocab = {};
-                    if(!app.state.profile.unlocked) app.state.profile.unlocked = {en:["A1-01"]};
+                    if(!app.state.profile.unlocked) app.state.profile.unlocked = {en:["A1-01"], de:["A1-01"]};
                     
                     app.updateUI();
                 });
@@ -212,7 +231,7 @@
                 const container = document.getElementById('levels-container');
                 container.innerHTML = "";
                 const lang = app.state.lang;
-                const levels = ["A1", "A2", "B1", "B2"];
+                const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
                 const unlocked = app.state.profile.unlocked[lang] || [];
 
                 levels.forEach(lvl => {
@@ -221,22 +240,46 @@
                         let num = i<10 ? '0'+i : i;
                         let id = `${lvl}-${num}`;
                         let open = unlocked.includes(id);
-                        let done = unlocked.includes(`${lvl}-${(i+1)<10?'0'+(i+1):(i+1)}`); // Hack: ak je ďalšia open, táto je done
-                        
+                        let done = unlocked.includes(`${lvl}-${(i+1)<10?'0'+(i+1):(i+1)}`);
                         let cls = done ? 'completed' : (open ? 'unlocked' : 'locked');
                         let icon = done ? '✅' : (open ? '🔓' : '🔒');
+                        let action = open ? `onclick="app.startLesson('${id}')"` : "";
                         
-                        // Pridanie onclick len ak je odomknuté
-                        let clickAction = open ? `onclick="app.startLesson('${id}')"` : "";
-                        
-                        html += `<div class="lesson-card ${cls}" ${clickAction}>Lekcia ${i}<br>${icon}</div>`;
+                        html += `<div class="lesson-card ${cls}" ${action}>Lekcia ${i}<br>${icon}</div>`;
                     }
                     html += `</div>`;
                     container.innerHTML += html;
                 });
             },
 
-            // --- TABS & NAVIGATION ---
+            // --- LEVEL PICKER ---
+            toggleLevelPicker: function() {
+                const el = document.getElementById('modal-level');
+                if(el.classList.contains('hidden')) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            },
+
+            setLevel: function(level) {
+                const lang = app.state.lang;
+                const startId = `${level}-01`;
+                
+                if(!app.state.profile.unlocked[lang].includes(startId)) {
+                    app.state.profile.unlocked[lang].push(startId);
+                    
+                    app.db.collection("users").doc(app.state.user.uid).update({
+                        unlocked: app.state.profile.unlocked
+                    }).then(() => {
+                        alert(`Úroveň ${level} odomknutá pre ${lang === 'en' ? 'Angličtinu' : 'Nemčinu'}!`);
+                        app.updateUI();
+                        app.toggleLevelPicker();
+                    });
+                } else {
+                    alert("Túto úroveň už máš odomknutú.");
+                    app.toggleLevelPicker();
+                }
+            },
+
+            // --- TABS ---
             switchTab: function(t) {
                 ['lessons','vocab','leaderboard'].forEach(x => {
                     document.getElementById('tab-'+x).classList.add('hidden');
@@ -265,13 +308,13 @@
                 const col = app.state.lang === 'en' ? 'lessons_en' : 'lessons_de';
                 app.db.collection(col).doc(id).get().then(doc => {
                     if(!doc.exists) { 
-                        alert("Lekcia je prázdna. Prosím klikni v menu na 'Admin: Reštartovať databázu'"); 
+                        alert("Táto lekcia je zatiaľ prázdna. (Admin musí nahrať dáta)"); 
                         app.goHome(); return; 
                     }
                     
                     const data = doc.data();
                     
-                    // Pridať slovíčka do profilu
+                    // Vocab logic
                     if(data.vocab) {
                         let changed = false;
                         data.vocab.forEach(w => {
@@ -290,8 +333,7 @@
             },
 
             renderStep: function() {
-                const s = app.state.lesson;
-                const q = s.queue[0];
+                const s = app.state.lesson; const q = s.queue[0];
                 if(!q) return app.nextPhase();
 
                 document.getElementById('lesson-title').innerText = `${s.id} | Fáza ${s.phase}`;
@@ -299,53 +341,33 @@
                 document.getElementById('question-text').innerText = s.phase === 4 ? "🎧 Diktát" : q.sk;
                 
                 const gb = document.getElementById('grammar-box');
-                if(s.phase===1 && s.data.grammar) { 
-                    gb.style.display='block'; gb.innerHTML="<b>Gramatika:</b> " + s.data.grammar; 
-                } else gb.style.display='none';
-
+                if(s.phase===1 && s.data.grammar) { gb.style.display='block'; gb.innerHTML=s.data.grammar; } else gb.style.display='none';
+                
                 if(s.phase===4) setTimeout(app.speakCurrent, 500);
 
-                const area = document.getElementById('interaction-area'); 
-                area.innerHTML="";
+                const area = document.getElementById('interaction-area'); area.innerHTML="";
                 document.getElementById('feedback').innerText = "";
 
-                // BUILDER UI
                 if(s.phase === 1) {
-                    let built = document.createElement('div'); 
-                    built.id="built"; 
-                    built.style.cssText="min-height:30px; border-bottom:2px solid #333; margin-bottom:10px; font-weight:bold; font-size:1.2em;"; 
-                    area.appendChild(built);
-                    
-                    let w = q.en.replace(/[.,?!]/g,"").split(" "); 
-                    w.push("not"); w.sort(()=>Math.random()-0.5);
-                    
+                    let built = document.createElement('div'); built.id="built"; built.style.cssText="min-height:30px; border-bottom:2px solid #333; margin-bottom:10px; font-weight:bold; font-size:1.2em;"; area.appendChild(built);
+                    let w = q.en.replace(/[.,?!]/g,"").split(" "); w.push("not"); w.sort(()=>Math.random()-0.5);
                     w.forEach(wd => {
-                        let b = document.createElement('button'); 
-                        b.className="word-btn"; b.innerText=wd;
+                        let b = document.createElement('button'); b.className="word-btn"; b.innerText=wd;
                         b.onclick = () => { built.innerText += (built.innerText?" ":"")+wd; b.classList.add('used'); };
                         area.appendChild(b);
                     });
-                    
-                    let r = document.createElement('div'); 
-                    r.innerText="↺ Reset"; r.onclick=app.renderStep; r.style.cssText="color:blue; cursor:pointer; margin-top:10px;"; 
-                    area.appendChild(r);
-                } 
-                // INPUT UI
-                else {
-                    let i = document.createElement('input'); 
-                    i.type="text"; i.id="inp";
+                    let r = document.createElement('div'); r.innerText="↺ Reset"; r.onclick=app.renderStep; r.style.cssText="color:blue; cursor:pointer; margin-top:10px;"; area.appendChild(r);
+                } else {
+                    let i = document.createElement('input'); i.type="text"; i.id="inp";
                     i.placeholder = s.phase===4 ? "Napíš čo počuješ..." : "Prelož...";
                     i.onkeypress=(e)=>{if(e.key==="Enter") app.checkAnswer()};
-                    area.appendChild(i); 
-                    setTimeout(()=>i.focus(),100);
+                    area.appendChild(i); setTimeout(()=>i.focus(),100);
                 }
             },
 
             checkAnswer: function() {
-                const s = app.state.lesson; 
-                const q = s.queue[0];
+                const s = app.state.lesson; const q = s.queue[0];
                 let val = s.phase===1 ? document.getElementById('built')?.innerText||"" : document.getElementById('inp').value;
-                
                 let v = val.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
                 let c = q.en.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
                 let fb = document.getElementById('feedback');
@@ -356,30 +378,21 @@
                     setTimeout(()=>{if(s.queue.length===0) app.nextPhase(); else app.renderStep();}, 1000);
                 } else {
                     fb.innerText=`❌ Chyba! Má byť: "${q.en}"`; fb.style.color="red";
-                    app.speakCurrent(); 
-                    s.queue.push(s.queue.shift()); 
-                    setTimeout(app.renderStep, 3500);
+                    app.speakCurrent(); s.queue.push(s.queue.shift()); setTimeout(app.renderStep, 3500);
                 }
             },
 
             nextPhase: function() {
                 if(app.state.lesson.phase < 4) {
-                    alert("Fáza hotová! Ide sa ďalej."); 
-                    app.state.lesson.phase++; 
-                    app.state.lesson.queue=[...app.state.lesson.data.sentences]; 
-                    app.state.lesson.correct=0; 
-                    app.renderStep();
+                    alert("Fáza hotová! Ide sa ďalej."); app.state.lesson.phase++; app.state.lesson.queue=[...app.state.lesson.data.sentences]; app.state.lesson.correct=0; app.renderStep();
                 } else {
                     alert("🎉 Lekcia hotová! +3 Body"); 
                     app.state.profile.points+=3;
-                    
                     let [l,n] = app.state.lesson.id.split('-');
                     let nid = `${l}-${(parseInt(n)+1)<10?'0'+(parseInt(n)+1):(parseInt(n)+1)}`;
-                    
                     if(!app.state.profile.unlocked[app.state.lang].includes(nid)) {
                         app.state.profile.unlocked[app.state.lang].push(nid);
                     }
-                    
                     app.db.collection("users").doc(app.state.user.uid).update({
                         points: app.state.profile.points, 
                         unlocked: app.state.profile.unlocked
@@ -396,7 +409,7 @@
                 }
             },
 
-            // --- EXTRA ---
+            // --- VOCAB & EXTRA ---
             renderVocab: function() {
                 const l=document.getElementById('vocab-list'); l.innerHTML="";
                 const v=app.state.profile.vocab||{};
@@ -437,7 +450,7 @@
                         let u=d.data(); 
                         l.innerHTML+=`<div style='padding:10px;border-bottom:1px solid #eee'>#${i++} ${u.email.split('@')[0]} (${u.points}b)</div>`;
                     });
-                }).catch(e => l.innerHTML="Chyba: " + e.message);
+                }).catch(e => l.innerHTML="Chyba (pozri konzolu)");
             },
 
             startTimer: function() {
@@ -457,34 +470,24 @@
                 },60000);
             },
 
-            // --- ADMIN UPLOAD ---
             uploadData: function() {
-                if(!confirm("Nahrať A1-A2 dáta? (Prepíše existujúce)")) return;
-                
+                if(!confirm("Nahrať vzorové dáta A1-A2?")) return;
                 const EN = {
-                    "A1-01": { 
-                        grammar: "To Be (Byť). I am, You are.", 
-                        sentences: [{sk:"Toto je pero", en:"This is a pen"}, {sk:"Stôl je dlhý", en:"The table is long"}, {sk:"Ja som študent", en:"I am a student"}, {sk:"Kniha je na stole", en:"The book is on the table"}],
-                        vocab: [{en:"pen",sk:"pero"},{en:"table",sk:"stôl"},{en:"long",sk:"dlhý"},{en:"student",sk:"študent"},{en:"book",sk:"kniha"}]
-                    },
-                    "A1-02": { grammar: "Plural (-s).", sentences: [{sk:"Dve perá", en:"Two pens"}, {sk:"Sú to stoličky?", en:"Are these chairs"}], vocab: [{en:"pens",sk:"perá"},{en:"chairs",sk:"stoličky"}] }
+                    "A1-01": { grammar: "To Be", sentences: [{sk:"To je pero", en:"This is a pen"}, {sk:"Stôl je dlhý", en:"The table is long"}], vocab: [{en:"pen",sk:"pero"},{en:"table",sk:"stôl"}] },
+                    "A1-02": { grammar: "Plural", sentences: [{sk:"Sú to perá", en:"These are pens"}], vocab: [{en:"pens",sk:"perá"}] }
                 };
+                const DE = { "A1-01": { grammar: "Sein", sentences: [{sk:"Ja som Peter", en:"Ich bin Peter"}], vocab: [{en:"ich",sk:"ja"}] } };
                 
-                const DE = {
-                    "A1-01": { grammar: "Sein (Byť).", sentences: [{sk:"Ja som Peter", en:"Ich bin Peter"}, {sk:"To je auto", en:"Das ist ein Auto"}], vocab: [{en:"ich",sk:"ja"},{en:"auto",sk:"auto"}] }
-                };
-
                 const batch = app.db.batch();
                 for(let [k,v] of Object.entries(EN)) batch.set(app.db.collection("lessons_en").doc(k), v);
                 for(let [k,v] of Object.entries(DE)) batch.set(app.db.collection("lessons_de").doc(k), v);
                 
-                batch.commit().then(() => alert("✅ Dáta úspešne nahrané!")).catch(e => alert(e.message));
+                batch.commit().then(() => alert("✅ Hotovo!")).catch(e => alert(e.message));
             }
         };
 
-        // SPUSTENIE
+        // START
         app.init();
-
     </script>
 </body>
 </html>
