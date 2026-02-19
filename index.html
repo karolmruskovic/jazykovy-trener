@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>English Master (v15.2 - Immutable Login)</title>
+    <title>English Master (v16.0 - Auto Fix)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -66,7 +66,7 @@
 </head>
 <body>
 
-    <div id="screen-login" class="container" style="text-align: center; margin-top: 100px;">
+    <div id="screen-login" class="container" style="text-align: center; margin-top: 10vh;">
         <h1 style="color: #2563eb;">🇬🇧 English Master</h1>
         <div class="card" style="max-width: 400px; margin: 0 auto;">
             <p>Prihlás sa a pokračuj v učení</p>
@@ -201,7 +201,6 @@
             appId: "1:901887815588:web:bb73239181ff3d5d619b31"
         };
 
-        // Globálne premenné pre Firebase, aby ich videl aj zvyšok aplikácie
         window.fbDb = null;
         window.fbAuth = null;
         window.currentUser = null;
@@ -214,7 +213,6 @@
                 window.fbAuth = firebase.auth();
                 const provider = new firebase.auth.GoogleAuthProvider();
 
-                // EVENT LISTENER PRE TLAČIDLO PRIHLÁSIŤ (Najbezpečnejšia metóda)
                 document.getElementById('btn-login-google').addEventListener('click', () => {
                     logBox.innerText = "Otváram Google prihlásenie...";
                     window.fbAuth.signInWithPopup(provider).catch(e => {
@@ -222,19 +220,16 @@
                     });
                 });
 
-                // EVENT LISTENER PRE ODHLÁSENIE
                 document.getElementById('btn-logout').addEventListener('click', () => {
                     window.fbAuth.signOut().then(() => location.reload());
                 });
 
-                // SLEDOVANIE STAVU PRIHLÁSENIA
                 window.fbAuth.onAuthStateChanged(user => {
                     if (user) {
                         window.currentUser = user;
                         document.getElementById('screen-login').classList.add('hidden');
                         document.getElementById('screen-dashboard').classList.remove('hidden');
                         
-                        // Ak existuje funkcia na spustenie aplikácie, zavolaj ju
                         if (typeof window.initApplication === "function") {
                             window.initApplication();
                         }
@@ -255,30 +250,24 @@
         };
         let currentQuestionEn = "";
 
-        // TÁTO FUNKCIA SA ZAVOLÁ AUTOMATICKY PO ÚSPEŠNOM PRIHLÁSENÍ (Z BLOKU VYŠŠIE)
         window.initApplication = async function() {
             bindEvents();
             await loadProfile();
         };
 
-        // --- BINDING EVENTOV (Nahrádza inline onclick) ---
         function bindEvents() {
-            // Dashboard Navigácia
             document.getElementById('tab-btn-lessons').addEventListener('click', () => switchTab('lessons'));
             document.getElementById('tab-btn-vocab').addEventListener('click', () => switchTab('vocab'));
             document.getElementById('tab-btn-leaderboard').addEventListener('click', () => switchTab('leaderboard'));
             document.getElementById('btn-change-nick').addEventListener('click', changeNick);
             
-            // Lekcie Navigácia
             document.getElementById('btn-back-levels').addEventListener('click', showLevels);
             document.getElementById('btn-back-lessons').addEventListener('click', showLessons);
             
-            // Slovník
             document.getElementById('btn-voc-learning').addEventListener('click', () => toggleVocabList('learning'));
             document.getElementById('btn-voc-learned').addEventListener('click', () => toggleVocabList('learned'));
             document.getElementById('btn-start-vocab').addEventListener('click', startVocabDrill);
             
-            // Tréning a Test 
             document.getElementById('btn-quit-training').addEventListener('click', quitTraining);
             document.getElementById('btn-speak').addEventListener('click', () => speakCurrent(currentQuestionEn));
             document.getElementById('btn-check').addEventListener('click', checkAnswer);
@@ -288,17 +277,15 @@
             document.getElementById('btn-test-next').addEventListener('click', () => testNav(1));
             document.getElementById('btn-test-finish').addEventListener('click', evaluateTest);
             
-            // Gramatika
             document.getElementById('btn-close-grammar').addEventListener('click', () => document.getElementById('modal-grammar').classList.add('hidden'));
 
-            // Vocab Drill okno
             document.getElementById('btn-quit-vocab').addEventListener('click', stopVocabDrill);
             document.getElementById('drill-check').addEventListener('click', checkVocab);
             document.getElementById('drill-next').addEventListener('click', nextVocab);
             document.getElementById('drill-input').addEventListener('keypress', (e) => { if(e.key==='Enter') checkVocab(); });
         }
 
-        // --- PROFIL ---
+        // --- SILNÁ OPRAVA PROFILU ---
         async function loadProfile() {
             const ref = window.fbDb.collection("users").doc(window.currentUser.uid);
             const snap = await ref.get();
@@ -306,22 +293,39 @@
 
             if(snap.exists) {
                 userProfile = snap.data();
-                if(isNaN(userProfile.points)) userProfile.points = 0;
-                if(!userProfile.vocab) userProfile.vocab = {};
-                if(!userProfile.completedChapters) userProfile.completedChapters = [];
-                
+                let needsUpdate = false;
+
+                // Bezpečnostná kontrola každého poľa (ochrana pred undefined chybou)
+                if (userProfile.points === undefined || isNaN(Number(userProfile.points))) { userProfile.points = 0; needsUpdate = true; }
+                else { userProfile.points = Number(userProfile.points); }
+
+                if (userProfile.dailyTime === undefined || isNaN(Number(userProfile.dailyTime))) { userProfile.dailyTime = 0; needsUpdate = true; }
+                else { userProfile.dailyTime = Number(userProfile.dailyTime); }
+
+                if (!userProfile.vocab) { userProfile.vocab = {}; needsUpdate = true; }
+                if (!Array.isArray(userProfile.completedChapters)) { userProfile.completedChapters = []; needsUpdate = true; }
+                if (!userProfile.nickname) { userProfile.nickname = window.currentUser.displayName || "Študent"; needsUpdate = true; }
+
                 if(userProfile.lastActive !== today) {
-                    const days = Math.ceil(Math.abs(new Date(today) - new Date(userProfile.lastActive))/(1000*3600*24));
-                    if(days > 1) {
-                        userProfile.points = Math.max(0, userProfile.points - 2);
-                        alert("Zameškal si učenie! Odpočítavame 2 body.");
+                    if(userProfile.lastActive) {
+                        const days = Math.ceil(Math.abs(new Date(today) - new Date(userProfile.lastActive))/(1000*3600*24));
+                        if(days > 1) {
+                            userProfile.points = Math.max(0, userProfile.points - 2);
+                            alert("Zameškal si učenie! Strácaš 2 body.");
+                        }
                     }
                     userProfile.dailyTime = 0;
                     userProfile.lastActive = today;
-                    await ref.update({ points: userProfile.points, dailyTime: 0, lastActive: today });
+                    needsUpdate = true;
                 }
+
+                if(needsUpdate) {
+                    try { await ref.set(userProfile, {merge: true}); } 
+                    catch(e) { console.error("Chyba opravy profilu: ", e); }
+                }
+
             } else {
-                userProfile = { points: 0, dailyTime: 0, lastActive: today, nickname: window.currentUser.displayName || "User", completedChapters: [], vocab: {} };
+                userProfile = { points: 0, dailyTime: 0, lastActive: today, nickname: window.currentUser.displayName || "Študent", completedChapters: [], vocab: {} };
                 await ref.set(userProfile);
             }
             updateUI();
@@ -329,9 +333,9 @@
         }
 
         function updateUI() {
-            document.getElementById('user-nick').innerText = userProfile.nickname;
-            document.getElementById('disp-points').innerText = userProfile.points.toFixed(1);
-            document.getElementById('disp-time').innerText = userProfile.dailyTime + "m";
+            document.getElementById('user-nick').innerText = userProfile.nickname || "Študent";
+            document.getElementById('disp-points').innerText = Number(userProfile.points).toFixed(1);
+            document.getElementById('disp-time').innerText = Number(userProfile.dailyTime) + "m";
             
             let mastered = 0;
             Object.values(userProfile.vocab || {}).forEach(i => { if(i.scoreEn>=3 && i.scoreSk>=3) mastered++; });
@@ -349,7 +353,6 @@
             }
         }
 
-        // --- NAVIGÁCIA ZÁLOŽIEK ---
         function switchTab(t) {
             ['lessons','vocab','leaderboard'].forEach(x => {
                 document.getElementById('view-'+x).classList.add('hidden');
@@ -361,10 +364,11 @@
             if(t==='leaderboard') loadLeaderboard();
         }
 
-        // --- VÝBER LEKCIÍ ---
         function renderLevels() {
             const lvls = ["A1","A2","B1","B2","C1","C2"];
-            const g = document.getElementById('grid-levels'); g.innerHTML="";
+            const g = document.getElementById('grid-levels'); 
+            if(!g) return;
+            g.innerHTML="";
             lvls.forEach(l => {
                 let d = document.createElement('div'); d.className="item-card"; d.innerHTML=`<h3 style="margin:0;">${l}</h3>`;
                 d.style.cursor = "pointer";
@@ -373,4 +377,451 @@
             });
         }
 
-        function selectLevel(
+        function selectLevel(l) {
+            state.currentLevel = l;
+            document.getElementById('level-select').classList.add('hidden');
+            document.getElementById('lesson-select').classList.remove('hidden');
+            document.getElementById('current-level-title').innerText = "Úroveň "+l;
+            const g = document.getElementById('grid-lessons-list'); g.innerHTML="";
+            for(let i=1; i<=10; i++) {
+                let n = i<10?'0'+i:i;
+                let d = document.createElement('div'); d.className="item-card"; d.innerHTML=`<b>Lekcia ${i}</b>`;
+                d.style.cursor = "pointer";
+                d.addEventListener('click', () => selectLesson(n)); 
+                g.appendChild(d);
+            }
+        }
+
+        function showLevels() { document.getElementById('lesson-select').classList.add('hidden'); document.getElementById('level-select').classList.remove('hidden'); }
+        
+        function selectLesson(n) {
+            state.currentLesson = n;
+            document.getElementById('lesson-select').classList.add('hidden');
+            document.getElementById('chapter-select').classList.remove('hidden');
+            document.getElementById('current-lesson-title').innerText = `${state.currentLevel} - Lekcia ${n}`;
+            const g = document.getElementById('grid-chapters'); g.innerHTML="Načítavam...";
+            
+            g.innerHTML="";
+            for(let i=1; i<=10; i++) {
+                let cNum = i<10?'0'+i:i;
+                let id = `${state.currentLevel}-L${state.currentLesson}-C${cNum}`;
+                let isDone = userProfile.completedChapters.includes(id);
+                let prevId = i===1 ? null : `${state.currentLevel}-L${state.currentLesson}-C${(i-1)<10?'0'+(i-1):(i-1)}`;
+                let locked = prevId && !userProfile.completedChapters.includes(prevId);
+
+                let d = document.createElement('div');
+                d.className = `item-card ${isDone?'completed':(locked?'locked':'')}`;
+                d.innerHTML = `<div style="font-weight:bold; margin-bottom:5px;">Kapitola ${i}</div><div style="font-size:1.5em; margin-bottom:10px;">${isDone?'✅':(locked?'🔒':'🔓')}</div>`;
+
+                if(!locked) {
+                    let btnBox = document.createElement('div');
+                    let bPlay = document.createElement('button');
+                    bPlay.className = "btn btn-sm"; bPlay.innerText = "▶ Spustiť";
+                    bPlay.addEventListener('click', (e) => { e.stopPropagation(); startChapter(id); });
+
+                    let bGram = document.createElement('button');
+                    bGram.className = "btn-outline btn-sm"; bGram.innerText = "📘 Gramatika"; bGram.style.width = "100%";
+                    bGram.addEventListener('click', (e) => { e.stopPropagation(); showGrammar(id); });
+
+                    btnBox.appendChild(bPlay); btnBox.appendChild(bGram);
+                    d.appendChild(btnBox);
+                }
+                g.appendChild(d);
+            }
+        }
+        function showLessons() { document.getElementById('chapter-select').classList.add('hidden'); document.getElementById('lesson-select').classList.remove('hidden'); }
+
+        async function showGrammar(id) {
+            document.getElementById('grammar-modal-title').innerText = "Načítavam...";
+            document.getElementById('grammar-modal-body').innerHTML = "⏳ Prosím čakaj...";
+            document.getElementById('modal-grammar').classList.remove('hidden');
+
+            try {
+                const doc = await window.fbDb.collection("chapters").doc(id).get();
+                if(doc.exists) {
+                    let data = doc.data();
+                    document.getElementById('grammar-modal-title').innerText = `Gramatika: ${id}`;
+                    document.getElementById('grammar-modal-body').innerHTML = data.grammar_detail || data.grammar || "Bez detailu.";
+                } else {
+                    document.getElementById('grammar-modal-body').innerHTML = "K tejto kapitole zatiaľ nebola nahratá gramatika.";
+                }
+            } catch(e) { document.getElementById('grammar-modal-body').innerHTML = "Chyba: " + e.message; }
+        }
+
+        async function startChapter(id) {
+            const doc = await window.fbDb.collection("chapters").doc(id).get();
+            if(!doc.exists) return alert("Kapitola zatiaľ nebola nahraná.");
+            
+            state.activeChapterData = doc.data();
+            state.activeChapterData.id = id;
+            state.activeRound = 1;
+            state.activeQueue = [...state.activeChapterData.sentences];
+            
+            if(state.activeChapterData.vocab) {
+                let changed = false;
+                state.activeChapterData.vocab.forEach(v => {
+                    if(!userProfile.vocab[v.en]) { userProfile.vocab[v.en]={sk:v.sk, scoreEn:0, scoreSk:0}; changed=true; }
+                });
+                if(changed) window.fbDb.collection("users").doc(window.currentUser.uid).update({vocab: userProfile.vocab});
+            }
+
+            document.getElementById('screen-dashboard').classList.add('hidden');
+            document.getElementById('screen-training').classList.remove('hidden');
+            renderRound();
+        }
+
+        function quitTraining() {
+            if(confirm("Naozaj chceš ukončiť lekciu? Postup sa neuloží.")) {
+                clearInterval(state.testTimer);
+                document.getElementById('screen-training').classList.add('hidden');
+                document.getElementById('screen-dashboard').classList.remove('hidden');
+            }
+        }
+
+        function renderRound() {
+            const s = state.activeQueue[0];
+            const area = document.getElementById('train-interaction');
+            const fb = document.getElementById('train-feedback');
+            
+            area.innerHTML=""; fb.innerText="";
+            document.getElementById('controls-standard').classList.remove('hidden');
+            document.getElementById('controls-test').classList.add('hidden');
+            document.getElementById('bar-timer-container').classList.add('hidden');
+            document.getElementById('btn-next').classList.add('hidden');
+            document.getElementById('btn-check').classList.remove('hidden');
+
+            let total = state.activeChapterData.sentences.length;
+            let current = total - state.activeQueue.length;
+            document.getElementById('bar-progress').style.width = ((current/total)*100) + "%";
+            document.getElementById('train-counter').innerText = `${current}/${total}`;
+
+            let titles = ["1. Kolo: Skladanie", "2. Kolo: Preklad", "3. Kolo: Diktát"];
+            document.getElementById('train-info-round').innerText = titles[state.activeRound-1];
+            document.getElementById('train-grammar').style.display = 'none';
+
+            if(!s) { finishRound(); return; }
+
+            currentQuestionEn = s.en;
+            const qt = document.getElementById('train-question');
+            const sb = document.getElementById('btn-speak');
+            sb.style.display='none';
+
+            if(state.activeRound===3) {
+                qt.innerText="🎧 Počúvaj a napíš (EN)";
+                sb.style.display='inline-block';
+                setTimeout(()=>speakCurrent(s.en), 500);
+            } else {
+                qt.innerText = s.sk;
+            }
+
+            if(state.activeRound===1) {
+                let box = document.createElement('div'); box.id="build-box"; box.style.cssText="border-bottom:2px solid #ccc; min-height:40px; margin-bottom:15px; font-weight:bold; font-size:1.2em; padding-bottom:5px;";
+                area.appendChild(box);
+                let w = s.en.replace(/[.,?!]/g,"").split(" "); w.push("not"); w.sort(()=>Math.random()-0.5);
+                w.forEach(wd => {
+                    let b = document.createElement('button'); b.className="word-btn"; b.innerText=wd;
+                    b.addEventListener('click', () => { box.innerText+=(box.innerText?" ":"")+wd; b.classList.add('used'); });
+                    area.appendChild(b);
+                });
+                let r = document.createElement('button'); r.innerText="↺ Zmazať všetko"; r.className="btn-outline btn-sm"; r.style.marginTop="10px"; 
+                r.addEventListener('click', renderRound); 
+                area.appendChild(r);
+            } else {
+                let i = document.createElement('input'); i.type="text"; i.id="user-inp"; i.placeholder="Napíš preklad..."; 
+                i.autocomplete="off"; 
+                i.addEventListener('keypress', (e) => { if(e.key==="Enter") checkAnswer(); });
+                area.appendChild(i); setTimeout(()=>i.focus(),100);
+            }
+        }
+
+        function checkAnswer() {
+            const s = state.activeQueue[0];
+            let val = state.activeRound===1 ? document.getElementById('build-box').innerText : document.getElementById('user-inp').value;
+            let v = val.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+            let c = s.en.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+            const fb = document.getElementById('train-feedback');
+
+            if(v===c) {
+                fb.innerText="✅ Výborne!"; fb.style.color="green";
+                document.getElementById('btn-check').classList.add('hidden');
+                document.getElementById('btn-next').classList.remove('hidden');
+                speakCurrent(s.en);
+            } else {
+                fb.innerText=`❌ Chyba! Má byť: "${s.en}"`; fb.style.color="red";
+                speakCurrent(s.en);
+                state.activeQueue.push(s); 
+                document.getElementById('btn-check').classList.add('hidden');
+                document.getElementById('btn-next').classList.remove('hidden');
+            }
+        }
+
+        function nextItem() {
+            state.activeQueue.shift();
+            renderRound();
+        }
+
+        function finishRound() {
+            if(state.activeRound < 3) {
+                alert(`Kolo ${state.activeRound} hotové!`);
+                state.activeRound++;
+                state.activeQueue = [...state.activeChapterData.sentences];
+                renderRound();
+            } else if(state.activeRound === 3) {
+                startTestRound();
+            }
+        }
+
+        function startTestRound() {
+            alert("Nasleduje ZÁVEREČNÝ TEST.\nMáš 6 minút na preklad 6 náhodných viet.");
+            state.activeRound = 4;
+            document.getElementById('train-info-round').innerText = "ZÁVEREČNÝ TEST";
+            
+            let all = [...state.activeChapterData.sentences];
+            all.sort(()=>Math.random()-0.5);
+            state.activeQueue = all.slice(0, 6);
+            
+            state.testIndex = 0;
+            state.testAnswers = ["", "", "", "", "", ""];
+            state.testTimeLeft = 360; 
+            
+            document.getElementById('bar-timer-container').classList.remove('hidden');
+            state.testTimer = setInterval(() => {
+                state.testTimeLeft--;
+                document.getElementById('bar-timer').style.width = ((state.testTimeLeft / 360) * 100) + "%";
+                if(state.testTimeLeft <= 0) evaluateTest(); 
+            }, 1000);
+
+            renderTestItem();
+        }
+
+        function renderTestItem() {
+            const area = document.getElementById('train-interaction');
+            area.innerHTML = "";
+            document.getElementById('train-feedback').innerText = "";
+            document.getElementById('btn-speak').style.display = 'none';
+            
+            document.getElementById('controls-standard').classList.add('hidden');
+            document.getElementById('controls-test').classList.remove('hidden');
+
+            document.getElementById('bar-progress').style.width = ((state.testIndex / 6) * 100) + "%";
+            document.getElementById('train-counter').innerText = `Veta ${state.testIndex + 1} zo 6`;
+
+            const s = state.activeQueue[state.testIndex];
+            document.getElementById('train-question').innerText = s.sk;
+
+            let inp = document.createElement('input'); 
+            inp.type = "text"; inp.id = "test-inp"; 
+            inp.value = state.testAnswers[state.testIndex]; 
+            inp.placeholder = "Tvoj preklad..."; inp.autocomplete = "off";
+            
+            inp.addEventListener('input', (e) => { state.testAnswers[state.testIndex] = e.target.value; });
+            inp.addEventListener('keypress', (e) => { if(e.key==="Enter") { if(state.testIndex<5) testNav(1); else evaluateTest(); } });
+            
+            area.appendChild(inp); setTimeout(()=>inp.focus(), 100);
+
+            document.getElementById('btn-test-next').classList.toggle('hidden', state.testIndex === 5);
+            document.getElementById('btn-test-finish').classList.toggle('hidden', state.testIndex !== 5);
+        }
+
+        function testNav(dir) {
+            const inp = document.getElementById('test-inp');
+            if(inp) state.testAnswers[state.testIndex] = inp.value;
+
+            let newIdx = state.testIndex + dir;
+            if(newIdx >= 0 && newIdx < 6) { state.testIndex = newIdx; renderTestItem(); }
+        }
+
+        async function evaluateTest() {
+            clearInterval(state.testTimer);
+            const inp = document.getElementById('test-inp');
+            if(inp && state.testIndex === 5) state.testAnswers[5] = inp.value;
+
+            let correctCount = 0;
+            let html = "<h3 style='border-bottom:2px solid #eee; padding-bottom:10px;'>Vyhodnotenie Testu</h3>";
+            
+            for(let i=0; i<6; i++) {
+                let userAns = state.testAnswers[i].trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+                let correctAns = state.activeQueue[i].en.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+                let isOk = (userAns === correctAns);
+                if(isOk) correctCount++;
+
+                html += `<div class="result-row">
+                    <div style="color:#666; font-size:0.9em;">${state.activeQueue[i].sk}</div>
+                    <div class="${isOk ? 'res-correct' : 'res-wrong'}">
+                        ${isOk ? '✅' : '❌'} <b>Tvoje:</b> ${state.testAnswers[i] || '<i>žiadna odpoveď</i>'}
+                    </div>
+                    ${!isOk ? `<div class="res-answer">👉 Správne: ${state.activeQueue[i].en}</div>` : ''}
+                </div>`;
+            }
+
+            const area = document.getElementById('train-interaction');
+            area.innerHTML = html;
+            document.getElementById('controls-test').classList.add('hidden');
+            document.getElementById('train-question').innerText = `Výsledok: ${correctCount}/6`;
+            document.getElementById('bar-progress').style.width = "100%";
+
+            if(correctCount === 6) {
+                let pts = 3; 
+                if(!userProfile.completedChapters.includes(state.activeChapterData.id)) {
+                    userProfile.completedChapters.push(state.activeChapterData.id);
+                }
+                
+                let [lvl, les] = state.activeChapterData.id.split('-L');
+                les = les.split('-')[0];
+                let doneInLesson = userProfile.completedChapters.filter(c => c.startsWith(`${lvl}-L${les}`)).length;
+                if(doneInLesson === 10) pts += 10;
+
+                userProfile.points += pts;
+                await window.fbDb.collection("users").doc(window.currentUser.uid).update({
+                    points: userProfile.points, completedChapters: userProfile.completedChapters
+                });
+
+                let btn = document.createElement('button'); btn.className = "btn"; btn.innerText = "Návrat do menu";
+                btn.addEventListener('click', () => {
+                    document.getElementById('screen-training').classList.add('hidden');
+                    document.getElementById('screen-dashboard').classList.remove('hidden');
+                    selectLesson(state.currentLesson); updateUI();
+                });
+                area.appendChild(btn);
+            } else {
+                let btn = document.createElement('button'); btn.className = "btn"; btn.style.background = "#dc2626";
+                btn.innerText = "Opakovať Diktát a Test";
+                btn.addEventListener('click', () => {
+                    state.activeRound = 3; 
+                    state.activeQueue = [...state.activeChapterData.sentences];
+                    renderRound();
+                });
+                area.appendChild(btn);
+            }
+        }
+
+        function toggleVocabList(type) {
+            document.getElementById('btn-voc-learning').classList.remove('active');
+            document.getElementById('btn-voc-learned').classList.remove('active');
+            document.getElementById('vocab-list-learning').classList.add('hidden');
+            document.getElementById('vocab-list-learned').classList.add('hidden');
+            
+            document.getElementById('btn-voc-'+type).classList.add('active');
+            document.getElementById('vocab-list-'+type).classList.remove('hidden');
+        }
+
+        function renderVocabLists() {
+            const listLearning = document.getElementById('vocab-list-learning');
+            const listLearned = document.getElementById('vocab-list-learned');
+            listLearning.innerHTML = ""; listLearned.innerHTML = "";
+            
+            const v = userProfile.vocab || {};
+            let countLrn = 0, countDone = 0;
+
+            Object.keys(v).forEach(k => {
+                let item = v[k];
+                let isMastered = (item.scoreEn >= 3 && item.scoreSk >= 3);
+                let html = `<div class="vocab-item ${isMastered?'mastered':''}">
+                    <div><b>${k}</b> <span style="color:#666;font-size:0.9em;margin-left:5px;">(${item.sk})</span></div>
+                    <div style="font-size:0.8em; font-weight:bold; color:${isMastered?'#10b981':'#888'};">EN: ${item.scoreEn}/3 | SK: ${item.scoreSk}/3</div>
+                </div>`;
+
+                if(isMastered) { listLearned.innerHTML += html; countDone++; } 
+                else { listLearning.innerHTML += html; countLrn++; }
+            });
+
+            if(countLrn === 0) listLearning.innerHTML = "<p style='text-align:center;color:#888;padding:20px;'>Všetko zatiaľ naučené!</p>";
+            if(countDone === 0) listLearned.innerHTML = "<p style='text-align:center;color:#888;padding:20px;'>Zatiaľ nemáš zvládnuté žiadne slovíčko na 100%.</p>";
+
+            document.getElementById('btn-voc-learning').innerText = `Učím sa (${countLrn})`;
+            document.getElementById('btn-voc-learned').innerText = `Naučené (${countDone})`;
+        }
+
+        function startVocabDrill() {
+            state.drillQueue = [];
+            const v = userProfile.vocab || {};
+            Object.keys(v).forEach(en => {
+                let d = v[en];
+                if(d.scoreEn<3 || d.scoreSk<3) state.drillQueue.push({en:en, sk:d.sk, data:d});
+            });
+            if(state.drillQueue.length===0) return alert("Všetko naučené! Spusti novú kapitolu pre nové slová.");
+            
+            document.getElementById('view-vocab').classList.add('hidden');
+            document.getElementById('screen-vocab-drill').classList.remove('hidden');
+            nextVocab();
+        }
+
+        function nextVocab() {
+            if(state.drillQueue.length===0) return stopVocabDrill();
+            const idx = Math.floor(Math.random() * state.drillQueue.length);
+            state.currentDrillWord = state.drillQueue[idx];
+            
+            let d = state.currentDrillWord.data;
+            state.drillDir = (d.scoreEn<3 && d.scoreSk<3) ? (Math.random()>0.5?'en_sk':'sk_en') : (d.scoreEn<3?'sk_en':'en_sk');
+            
+            document.getElementById('drill-word').innerText = state.drillDir==='en_sk' ? state.currentDrillWord.en : state.currentDrillWord.sk;
+            document.getElementById('drill-input').value = "";
+            document.getElementById('drill-feedback').innerText = "";
+            document.getElementById('drill-check').classList.remove('hidden');
+            document.getElementById('drill-next').classList.add('hidden');
+            document.getElementById('drill-input').focus();
+        }
+
+        function checkVocab() {
+            const val = document.getElementById('drill-input').value.trim().toLowerCase();
+            const w = state.currentDrillWord;
+            let correct = (state.drillDir==='en_sk') ? (val===w.sk.toLowerCase()) : (val===w.en.toLowerCase());
+            
+            if(correct) {
+                document.getElementById('drill-feedback').innerText = "✅ Správne!";
+                document.getElementById('drill-feedback').style.color = "green";
+                if(state.drillDir==='en_sk') w.data.scoreSk++; else w.data.scoreEn++;
+                
+                userProfile.points += 0.1;
+                window.fbDb.collection("users").doc(window.currentUser.uid).update({vocab: userProfile.vocab, points: userProfile.points});
+                
+                if(w.data.scoreEn>=3 && w.data.scoreSk>=3) {
+                    state.drillQueue = state.drillQueue.filter(i => i.en !== w.en);
+                }
+                document.getElementById('drill-check').classList.add('hidden');
+                document.getElementById('drill-next').classList.remove('hidden');
+            } else {
+                document.getElementById('drill-feedback').innerText = `❌ Správne: ${state.drillDir==='en_sk'?w.sk:w.en}`;
+                document.getElementById('drill-feedback').style.color = "red";
+            }
+        }
+
+        function stopVocabDrill() {
+            document.getElementById('screen-vocab-drill').classList.add('hidden');
+            document.getElementById('view-vocab').classList.remove('hidden');
+            updateUI(); renderVocabLists();
+        }
+
+        function loadLeaderboard() {
+            const l = document.getElementById('leaderboard-list'); l.innerHTML="Načítavam...";
+            window.fbDb.collection("users").orderBy("points","desc").limit(10).get().then(s => {
+                l.innerHTML=""; let i=1;
+                s.forEach(d => {
+                    let u=d.data();
+                    l.innerHTML+=`<div style="padding:15px;border-bottom:1px solid #eee;display:flex;justify-content:space-between; align-items:center;">
+                        <span style="font-size:1.1em;"><b>#${i++}</b> ${u.nickname}</span>
+                        <span style="color:#2563eb; font-weight:bold;">${u.points.toFixed(1)} b</span>
+                    </div>`;
+                });
+            });
+        }
+
+        function startTimer() {
+            setInterval(() => {
+                if(!document.hidden && userProfile) {
+                    userProfile.dailyTime++;
+                    document.getElementById('disp-time').innerText = userProfile.dailyTime+"m";
+                    window.fbDb.collection("users").doc(window.currentUser.uid).update({dailyTime: userProfile.dailyTime});
+                }
+            }, 60000);
+        }
+
+        function speakCurrent(txt) {
+            if(!txt) return;
+            const u = new SpeechSynthesisUtterance(txt);
+            u.lang = "en-GB"; 
+            speechSynthesis.speak(u);
+        }
+    </script>
+</body>
+</html>
