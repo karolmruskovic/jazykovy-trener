@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>English Master (v15.1 Fix)</title>
+    <title>English Master (v15.2 - Immutable Login)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -40,7 +40,7 @@
         .res-wrong { color: red; }
         .res-answer { font-weight: bold; display: block; margin-top: 3px; color:#555;}
 
-        /* Modal Overlay for Grammar */
+        /* Modal Overlay */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; text-align: left; max-height: 80vh; overflow-y: auto; }
         .modal-content h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top:0; color:#2563eb;}
@@ -69,16 +69,16 @@
     <div id="screen-login" class="container" style="text-align: center; margin-top: 100px;">
         <h1 style="color: #2563eb;">🇬🇧 English Master</h1>
         <div class="card" style="max-width: 400px; margin: 0 auto;">
-            <p>Verzia 15.1 (Opravené prihlásenie)</p>
-            <button onclick="handleLogin()" class="btn">Prihlásiť sa cez Google</button>
-            <div id="login-log" style="color: red; margin-top: 10px; font-size: 12px;"></div>
+            <p>Prihlás sa a pokračuj v učení</p>
+            <button id="btn-login-google" class="btn">Prihlásiť sa cez Google</button>
+            <div id="login-log" style="color: red; margin-top: 15px; font-size: 13px; font-weight:bold;"></div>
         </div>
     </div>
 
     <div id="screen-dashboard" class="container hidden">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div style="font-weight:bold; font-size:1.1em;">👤 <span id="user-nick">...</span> <button onclick="changeNick()" style="border:none;background:none;cursor:pointer;font-size:0.9em;">✏️</button></div>
-            <button onclick="handleLogout()" class="btn-outline" style="color:red; border-color:red; padding:6px 12px;">Odhlásiť</button>
+            <div style="font-weight:bold; font-size:1.1em;">👤 <span id="user-nick">...</span> <button id="btn-change-nick" style="border:none;background:none;cursor:pointer;font-size:0.9em;">✏️</button></div>
+            <button id="btn-logout" class="btn-outline" style="color:red; border-color:red; padding:6px 12px;">Odhlásiť</button>
         </div>
 
         <div class="stats-bar">
@@ -88,9 +88,9 @@
         </div>
 
         <div class="nav-tabs">
-            <button class="nav-btn active" onclick="switchTab('lessons')" id="tab-btn-lessons">Lekcie</button>
-            <button class="nav-btn" onclick="switchTab('vocab')" id="tab-btn-vocab">Slovník</button>
-            <button class="nav-btn" onclick="switchTab('leaderboard')" id="tab-btn-leaderboard">Rebríček</button>
+            <button class="nav-btn active" id="tab-btn-lessons">Lekcie</button>
+            <button class="nav-btn" id="tab-btn-vocab">Slovník</button>
+            <button class="nav-btn" id="tab-btn-leaderboard">Rebríček</button>
         </div>
 
         <div id="view-lessons">
@@ -99,12 +99,12 @@
                 <div class="grid-lessons" id="grid-levels"></div>
             </div>
             <div id="lesson-select" class="card hidden">
-                <button onclick="showLevels()" class="btn-outline" style="margin-bottom:15px;">⬅ Späť na úrovne</button>
+                <button id="btn-back-levels" class="btn-outline" style="margin-bottom:15px;">⬅ Späť na úrovne</button>
                 <h3 id="current-level-title" style="margin-top:0;">...</h3>
                 <div class="grid-lessons" id="grid-lessons-list"></div>
             </div>
             <div id="chapter-select" class="card hidden">
-                <button onclick="showLessons()" class="btn-outline" style="margin-bottom:15px;">⬅ Späť na lekcie</button>
+                <button id="btn-back-lessons" class="btn-outline" style="margin-bottom:15px;">⬅ Späť na lekcie</button>
                 <h3 id="current-lesson-title" style="margin-top:0;">...</h3>
                 <div class="grid-lessons" id="grid-chapters"></div>
             </div>
@@ -114,12 +114,12 @@
             <div class="card" style="text-align:center;">
                 <h3 style="margin-top:0;">Inteligentný Slovník</h3>
                 <p style="font-size:14px; color:#555;">Slovo sa označí ako "Naučené" až keď ho zodpovieš 3x správne do angličtiny a 3x do slovenčiny.</p>
-                <button onclick="startVocabDrill()" class="btn" style="background:orange;">⚡ Trénovať slovíčka</button>
+                <button id="btn-start-vocab" class="btn" style="background:orange;">⚡ Trénovať slovíčka</button>
             </div>
             
             <div class="nav-tabs" style="margin-bottom: 10px;">
-                <button class="nav-btn active" id="btn-voc-learning" onclick="toggleVocabList('learning')">Učím sa (0)</button>
-                <button class="nav-btn" id="btn-voc-learned" onclick="toggleVocabList('learned')">Naučené (0)</button>
+                <button class="nav-btn active" id="btn-voc-learning">Učím sa (0)</button>
+                <button class="nav-btn" id="btn-voc-learned">Naučené (0)</button>
             </div>
             
             <div id="vocab-list-learning" class="card"></div>
@@ -132,7 +132,7 @@
     </div>
 
     <div id="screen-training" class="container hidden">
-        <button onclick="quitTraining()" class="btn-outline">❌ Ukončiť</button>
+        <button id="btn-quit-training" class="btn-outline">❌ Ukončiť</button>
         
         <div class="card">
             <div style="display:flex; justify-content:space-between; color:#666; font-size:12px; margin-bottom:5px;">
@@ -151,34 +151,34 @@
 
             <div style="text-align:center;">
                 <h2 id="train-question">...</h2>
-                <button onclick="speakCurrent(currentQuestionEn)" id="btn-speak" style="font-size:24px; border:none; background:orange; border-radius:50%; width:50px; height:50px; cursor:pointer; margin-bottom:15px; box-shadow:0 3px 0 #cc6600;">🔊</button>
+                <button id="btn-speak" style="font-size:24px; border:none; background:orange; border-radius:50%; width:50px; height:50px; cursor:pointer; margin-bottom:15px; box-shadow:0 3px 0 #cc6600;">🔊</button>
             </div>
 
             <div id="train-interaction"></div>
             <div id="train-feedback" class="feedback"></div>
 
             <div id="controls-standard">
-                <button onclick="checkAnswer()" id="btn-check" class="btn">Skontrolovať</button>
-                <button onclick="nextItem()" id="btn-next" class="btn hidden" style="background:green;">Ďalej ➡</button>
+                <button id="btn-check" class="btn">Skontrolovať</button>
+                <button id="btn-next" class="btn hidden" style="background:green;">Ďalej ➡</button>
             </div>
 
             <div id="controls-test" class="hidden" style="margin-top:20px; display:flex; justify-content:space-between;">
-                <button onclick="testNav(-1)" class="btn btn-nav" style="background:#666;">⬅ Späť</button>
-                <button onclick="testNav(1)" id="btn-test-next" class="btn btn-nav">Ďalej ➡</button>
-                <button onclick="evaluateTest()" id="btn-test-finish" class="btn hidden" style="background:#dc2626;">📝 Vyhodnotiť test</button>
+                <button id="btn-test-prev" class="btn btn-nav" style="background:#666;">⬅ Späť</button>
+                <button id="btn-test-next" class="btn btn-nav">Ďalej ➡</button>
+                <button id="btn-test-finish" class="btn hidden" style="background:#dc2626;">📝 Vyhodnotiť test</button>
             </div>
         </div>
     </div>
 
     <div id="screen-vocab-drill" class="container hidden">
-        <button onclick="stopVocabDrill()" class="btn-outline">⬅ Späť na slovník</button>
+        <button id="btn-quit-vocab" class="btn-outline">⬅ Späť na slovník</button>
         <div class="card" style="text-align:center; margin-top:20px;">
             <div style="color:#888; font-size:12px; text-transform:uppercase; letter-spacing:1px;">Prelož slovo</div>
             <h1 id="drill-word" style="margin:10px 0; color:#2563eb; font-size:2.5em;">...</h1>
-            <input type="text" id="drill-input" placeholder="Napíš preklad sem..." onkeypress="if(event.key==='Enter') checkVocab()">
+            <input type="text" id="drill-input" placeholder="Napíš preklad sem...">
             <div id="drill-feedback" class="feedback"></div>
-            <button onclick="checkVocab()" class="btn" id="drill-check">Skontrolovať</button>
-            <button onclick="nextVocab()" class="btn hidden" id="drill-next" style="background:green;">Ďalšie slovo</button>
+            <button id="drill-check" class="btn">Skontrolovať</button>
+            <button id="drill-next" class="btn hidden" style="background:green;">Ďalšie slovo</button>
         </div>
     </div>
 
@@ -186,12 +186,12 @@
         <div class="modal-content">
             <h3 id="grammar-modal-title">Gramatika</h3>
             <div id="grammar-modal-body" style="font-size:15px; line-height:1.6; color:#444;">Načítavam...</div>
-            <button onclick="document.getElementById('modal-grammar').classList.add('hidden')" class="btn-outline" style="margin-top:25px; width:100%;">Zavrieť</button>
+            <button id="btn-close-grammar" class="btn-outline" style="margin-top:25px; width:100%;">Zavrieť</button>
         </div>
     </div>
 
+
     <script>
-        // --- 1. FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyDjXlW6hXeDxbFcIiSU4rAvGE3weh8uOig",
             authDomain: "mojjazykovytrener.firebaseapp.com",
@@ -201,66 +201,106 @@
             appId: "1:901887815588:web:bb73239181ff3d5d619b31"
         };
 
-        // --- 2. GLOBAL STATE ---
-        let db, auth, provider;
-        let currentUser = null;
+        // Globálne premenné pre Firebase, aby ich videl aj zvyšok aplikácie
+        window.fbDb = null;
+        window.fbAuth = null;
+        window.currentUser = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const logBox = document.getElementById('login-log');
+            try {
+                firebase.initializeApp(firebaseConfig);
+                window.fbDb = firebase.firestore();
+                window.fbAuth = firebase.auth();
+                const provider = new firebase.auth.GoogleAuthProvider();
+
+                // EVENT LISTENER PRE TLAČIDLO PRIHLÁSIŤ (Najbezpečnejšia metóda)
+                document.getElementById('btn-login-google').addEventListener('click', () => {
+                    logBox.innerText = "Otváram Google prihlásenie...";
+                    window.fbAuth.signInWithPopup(provider).catch(e => {
+                        logBox.innerText = "Chyba prihlásenia: " + e.message;
+                    });
+                });
+
+                // EVENT LISTENER PRE ODHLÁSENIE
+                document.getElementById('btn-logout').addEventListener('click', () => {
+                    window.fbAuth.signOut().then(() => location.reload());
+                });
+
+                // SLEDOVANIE STAVU PRIHLÁSENIA
+                window.fbAuth.onAuthStateChanged(user => {
+                    if (user) {
+                        window.currentUser = user;
+                        document.getElementById('screen-login').classList.add('hidden');
+                        document.getElementById('screen-dashboard').classList.remove('hidden');
+                        
+                        // Ak existuje funkcia na spustenie aplikácie, zavolaj ju
+                        if (typeof window.initApplication === "function") {
+                            window.initApplication();
+                        }
+                    }
+                });
+            } catch (error) {
+                logBox.innerText = "Kritická chyba inicializácie: " + error.message;
+            }
+        });
+    </script>
+    <script>
         let userProfile = null;
-        
         let state = {
-            currentLevel: null,
-            currentLesson: null,
-            activeChapterData: null,
-            activeQueue: [],
-            activeRound: 1,
-            
-            // Test
-            testIndex: 0,
-            testAnswers: [],
-            testTimer: null,
-            testTimeLeft: 0,
-            
-            // Vocab Drill
-            drillQueue: [],
-            currentDrillWord: null,
-            drillDir: null
+            currentLevel: null, currentLesson: null, 
+            activeChapterData: null, activeQueue: [], activeRound: 1, 
+            testIndex: 0, testAnswers: [], testTimer: null, testTimeLeft: 0,
+            drillQueue: [], currentDrillWord: null, drillDir: null
+        };
+        let currentQuestionEn = "";
+
+        // TÁTO FUNKCIA SA ZAVOLÁ AUTOMATICKY PO ÚSPEŠNOM PRIHLÁSENÍ (Z BLOKU VYŠŠIE)
+        window.initApplication = async function() {
+            bindEvents();
+            await loadProfile();
         };
 
-        let currentQuestionEn = ""; // Pre tlačidlo Speak
+        // --- BINDING EVENTOV (Nahrádza inline onclick) ---
+        function bindEvents() {
+            // Dashboard Navigácia
+            document.getElementById('tab-btn-lessons').addEventListener('click', () => switchTab('lessons'));
+            document.getElementById('tab-btn-vocab').addEventListener('click', () => switchTab('vocab'));
+            document.getElementById('tab-btn-leaderboard').addEventListener('click', () => switchTab('leaderboard'));
+            document.getElementById('btn-change-nick').addEventListener('click', changeNick);
+            
+            // Lekcie Navigácia
+            document.getElementById('btn-back-levels').addEventListener('click', showLevels);
+            document.getElementById('btn-back-lessons').addEventListener('click', showLessons);
+            
+            // Slovník
+            document.getElementById('btn-voc-learning').addEventListener('click', () => toggleVocabList('learning'));
+            document.getElementById('btn-voc-learned').addEventListener('click', () => toggleVocabList('learned'));
+            document.getElementById('btn-start-vocab').addEventListener('click', startVocabDrill);
+            
+            // Tréning a Test 
+            document.getElementById('btn-quit-training').addEventListener('click', quitTraining);
+            document.getElementById('btn-speak').addEventListener('click', () => speakCurrent(currentQuestionEn));
+            document.getElementById('btn-check').addEventListener('click', checkAnswer);
+            document.getElementById('btn-next').addEventListener('click', nextItem);
+            
+            document.getElementById('btn-test-prev').addEventListener('click', () => testNav(-1));
+            document.getElementById('btn-test-next').addEventListener('click', () => testNav(1));
+            document.getElementById('btn-test-finish').addEventListener('click', evaluateTest);
+            
+            // Gramatika
+            document.getElementById('btn-close-grammar').addEventListener('click', () => document.getElementById('modal-grammar').classList.add('hidden'));
 
-        // --- 3. INIT FIREBASE (STARÁ ŠKOLA) ---
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            provider = new firebase.auth.GoogleAuthProvider();
-
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user;
-                    document.getElementById('screen-login').classList.add('hidden');
-                    document.getElementById('screen-dashboard').classList.remove('hidden');
-                    loadProfile();
-                }
-            });
-        } catch(e) {
-            document.getElementById('login-log').innerText = "Chyba inicializácie: " + e.message;
+            // Vocab Drill okno
+            document.getElementById('btn-quit-vocab').addEventListener('click', stopVocabDrill);
+            document.getElementById('drill-check').addEventListener('click', checkVocab);
+            document.getElementById('drill-next').addEventListener('click', nextVocab);
+            document.getElementById('drill-input').addEventListener('keypress', (e) => { if(e.key==='Enter') checkVocab(); });
         }
 
-        // --- 4. AUTH FUNCTIONS ---
-        function handleLogin() {
-            document.getElementById('login-log').innerText = "Otváram Google prihlásenie...";
-            auth.signInWithPopup(provider).catch(e => {
-                document.getElementById('login-log').innerText = "Chyba: " + e.message;
-            });
-        }
-
-        function handleLogout() {
-            auth.signOut().then(() => location.reload());
-        }
-
-        // --- 5. DATA LOADING ---
+        // --- PROFIL ---
         async function loadProfile() {
-            const ref = db.collection("users").doc(currentUser.uid);
+            const ref = window.fbDb.collection("users").doc(window.currentUser.uid);
             const snap = await ref.get();
             const today = new Date().toISOString().split('T')[0];
 
@@ -270,7 +310,6 @@
                 if(!userProfile.vocab) userProfile.vocab = {};
                 if(!userProfile.completedChapters) userProfile.completedChapters = [];
                 
-                // Neaktivita
                 if(userProfile.lastActive !== today) {
                     const days = Math.ceil(Math.abs(new Date(today) - new Date(userProfile.lastActive))/(1000*3600*24));
                     if(days > 1) {
@@ -278,4 +317,60 @@
                         alert("Zameškal si učenie! Odpočítavame 2 body.");
                     }
                     userProfile.dailyTime = 0;
-                    userProfile.lastActive
+                    userProfile.lastActive = today;
+                    await ref.update({ points: userProfile.points, dailyTime: 0, lastActive: today });
+                }
+            } else {
+                userProfile = { points: 0, dailyTime: 0, lastActive: today, nickname: window.currentUser.displayName || "User", completedChapters: [], vocab: {} };
+                await ref.set(userProfile);
+            }
+            updateUI();
+            startTimer();
+        }
+
+        function updateUI() {
+            document.getElementById('user-nick').innerText = userProfile.nickname;
+            document.getElementById('disp-points').innerText = userProfile.points.toFixed(1);
+            document.getElementById('disp-time').innerText = userProfile.dailyTime + "m";
+            
+            let mastered = 0;
+            Object.values(userProfile.vocab || {}).forEach(i => { if(i.scoreEn>=3 && i.scoreSk>=3) mastered++; });
+            document.getElementById('disp-vocab').innerText = mastered;
+
+            renderLevels();
+        }
+
+        function changeNick() {
+            let n = prompt("Nová prezývka:", userProfile.nickname);
+            if(n && n.trim()!=="") { 
+                userProfile.nickname = n.trim(); 
+                window.fbDb.collection("users").doc(window.currentUser.uid).update({nickname: n.trim()}); 
+                updateUI(); 
+            }
+        }
+
+        // --- NAVIGÁCIA ZÁLOŽIEK ---
+        function switchTab(t) {
+            ['lessons','vocab','leaderboard'].forEach(x => {
+                document.getElementById('view-'+x).classList.add('hidden');
+                document.getElementById('tab-btn-'+x).classList.remove('active');
+            });
+            document.getElementById('view-'+t).classList.remove('hidden');
+            document.getElementById('tab-btn-'+t).classList.add('active');
+            if(t==='vocab') renderVocabLists();
+            if(t==='leaderboard') loadLeaderboard();
+        }
+
+        // --- VÝBER LEKCIÍ ---
+        function renderLevels() {
+            const lvls = ["A1","A2","B1","B2","C1","C2"];
+            const g = document.getElementById('grid-levels'); g.innerHTML="";
+            lvls.forEach(l => {
+                let d = document.createElement('div'); d.className="item-card"; d.innerHTML=`<h3 style="margin:0;">${l}</h3>`;
+                d.style.cursor = "pointer";
+                d.addEventListener('click', () => selectLevel(l)); 
+                g.appendChild(d);
+            });
+        }
+
+        function selectLevel(
