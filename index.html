@@ -230,8 +230,553 @@
 
     <script>
         // 🟢🟢🟢 TU VLOŽ SVOJ ADMIN EMAIL ! 🟢🟢🟢
-        const ADMIN_EMAIL = "karol.mruskovic@gmail.com"; 
+        const ADMIN_EMAIL = “karol.mruskovic@gmail.com"; 
         
         const dummyWords =["apple", "always", "never", "blue", "dog", "quickly", "money", "water", "happy", "house", "run", "cat", "table", "book", "friend", "not", "too", "very", "about", "today"];
 
-        const MASTER_VERBS =
+        const MASTER_VERBS =[
+            {sk: "byť", v1: "be", v2: "was/were", v3: "been"}, {sk: "mať", v1: "have", v2: "had", v3: "had"},
+            {sk: "robiť", v1: "do", v2: "did", v3: "done"}, {sk: "ísť", v1: "go", v2: "went", v3: "gone"},
+            {sk: "povedať", v1: "say", v2: "said", v3: "said"}, {sk: "vidieť", v1: "see", v2: "saw", v3: "seen"},
+            {sk: "prísť", v1: "come", v2: "came", v3: "come"}, {sk: "zobrať", v1: "take", v2: "took", v3: "taken"},
+            {sk: "dať", v1: "give", v2: "gave", v3: "given"}, {sk: "dostať", v1: "get", v2: "got", v3: "got"}
+        ];
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjXlW6hXeDxbFcIiSU4rAvGE3weh8uOig",
+            authDomain: "mojjazykovytrener.firebaseapp.com",
+            projectId: "mojjazykovytrener",
+            storageBucket: "mojjazykovytrener.firebasestorage.app",
+            messagingSenderId: "901887815588",
+            appId: "1:901887815588:web:bb73239181ff3d5d619b31"
+        };
+
+        window.fbDb = null; window.fbAuth = null; window.currentUser = null;
+        let userProfile = null;
+        let state = { currentLevel: null, currentLesson: null, activeChapterData: null, activeRound: 1, activeQueue: [], testIndex: 0, testAnswers:[], testTimer: null, testTimeLeft: 0, buildCurrentWords:[], buildTargetWords:[], drillMode: null, drillQueue:[], currentDrillItem: null, drillDir: null };
+        let currentQuestionEn = "";
+
+        // PÔVODNÝ (TVOJ VYLADENÝ) PRIHLASOVACÍ KÓD BEZ ZMIEN
+        document.addEventListener("DOMContentLoaded", () => {
+            const logBox = document.getElementById('login-log');
+            try {
+                firebase.initializeApp(firebaseConfig);
+                window.fbDb = firebase.firestore();
+                window.fbAuth = firebase.auth();
+                const provider = new firebase.auth.GoogleAuthProvider();
+
+                document.getElementById('btn-login-google').addEventListener('click', () => {
+                    logBox.innerText = "Otváram Google prihlásenie...";
+                    window.fbAuth.signInWithPopup(provider).catch(e => {
+                        logBox.innerText = "Chyba prihlásenia: " + e.message;
+                    });
+                });
+
+                document.getElementById('btn-logout').addEventListener('click', () => {
+                    window.fbAuth.signOut().then(() => location.reload());
+                });
+
+                // Odhlasovací button v obrazovke čakania
+                document.getElementById('btn-logout-waiting').addEventListener('click', () => {
+                    window.fbAuth.signOut().then(() => location.reload());
+                });
+
+                window.fbAuth.onAuthStateChanged(user => {
+                    if (user) {
+                        window.currentUser = user;
+                        document.getElementById('screen-login').classList.add('hidden');
+                        // Namiesto automatického zobrazenia appky overíme, či má účet prístup
+                        if (typeof window.initApplication === "function") {
+                            window.initApplication();
+                        }
+                    }
+                });
+            } catch (error) {
+                logBox.innerText = "Kritická chyba inicializácie: " + error.message;
+            }
+        });
+
+        window.initApplication = async function() {
+            bindGeneralEvents();
+            await loadProfile();
+        };
+
+        function bindGeneralEvents() {
+            document.getElementById('tab-btn-lessons').addEventListener('click', () => switchTab('lessons'));
+            document.getElementById('tab-btn-vocab').addEventListener('click', () => switchTab('vocab'));
+            document.getElementById('tab-btn-verbs').addEventListener('click', () => switchTab('verbs'));
+            document.getElementById('tab-btn-leaderboard').addEventListener('click', () => switchTab('leaderboard'));
+            
+            document.getElementById('btn-change-nick').addEventListener('click', changeNick);
+            document.getElementById('btn-admin-panel').addEventListener('click', openAdminPanel);
+            document.getElementById('btn-close-admin').addEventListener('click', () => document.getElementById('modal-admin').classList.add('hidden'));
+            
+            document.getElementById('btn-back-levels').addEventListener('click', () => {document.getElementById('lesson-select').classList.add('hidden'); document.getElementById('level-select').classList.remove('hidden');});
+            document.getElementById('btn-back-lessons').addEventListener('click', () => {document.getElementById('chapter-select').classList.add('hidden'); document.getElementById('lesson-select').classList.remove('hidden');});
+            
+            document.getElementById('btn-voc-learning').addEventListener('click', () => toggleList('vocab', 'learning'));
+            document.getElementById('btn-voc-learned').addEventListener('click', () => toggleList('vocab', 'learned'));
+            document.getElementById('btn-vrb-learning').addEventListener('click', () => toggleList('verbs', 'learning'));
+            document.getElementById('btn-vrb-learned').addEventListener('click', () => toggleList('verbs', 'learned'));
+            
+            document.getElementById('btn-start-vocab').addEventListener('click', () => startDrill('vocab'));
+            document.getElementById('btn-start-verbs').addEventListener('click', () => startDrill('verbs'));
+            document.getElementById('btn-quit-drill').addEventListener('click', quitDrill);
+            document.getElementById('drill-check').addEventListener('click', checkDrill);
+            document.getElementById('drill-next').addEventListener('click', nextDrillItem);
+            
+            document.getElementById('drill-input').addEventListener('keypress', e => { if(e.key==='Enter') checkDrill(); });
+            document.querySelectorAll('.verb-col input').forEach(inp => inp.addEventListener('keypress', e => { if(e.key==='Enter') checkDrill(); }));
+
+            document.getElementById('btn-quit-training').addEventListener('click', quitTraining);
+            document.getElementById('btn-speak').addEventListener('click', () => speakCurrent(currentQuestionEn));
+            document.getElementById('btn-check').addEventListener('click', checkRoundAnswer);
+            document.getElementById('btn-next').addEventListener('click', nextRoundItem);
+            
+            document.getElementById('btn-test-prev').addEventListener('click', () => testNav(-1));
+            document.getElementById('btn-test-next').addEventListener('click', () => testNav(1));
+            document.getElementById('btn-test-finish').addEventListener('click', evaluateTest);
+            
+            document.getElementById('btn-close-daily').addEventListener('click', () => {
+                document.getElementById('modal-daily').classList.add('hidden');
+                if(userProfile.lastLessonId) {
+                    let parts = userProfile.lastLessonId.split('-L');
+                    selectLevel(parts[0]); 
+                    selectLesson(parts[1].split('-')[0]);
+                }
+            });
+        }
+
+        async function loadProfile() {
+            const ref = window.fbDb.collection("users").doc(window.currentUser.uid);
+            const snap = await ref.get();
+            const today = new Date().toISOString().split('T')[0];
+            let isAdmin = (window.currentUser.email === ADMIN_EMAIL);
+            let showDaily = false;
+
+            if (isAdmin) document.getElementById('btn-admin-panel').classList.remove('hidden');
+
+            if(snap.exists) {
+                userProfile = snap.data();
+                let needsUpdate = false;
+
+                if (userProfile.points === undefined || isNaN(Number(userProfile.points))) { userProfile.points = 0; needsUpdate = true; } else { userProfile.points = Number(userProfile.points); }
+                if (userProfile.dailyTime === undefined || isNaN(Number(userProfile.dailyTime))) { userProfile.dailyTime = 0; needsUpdate = true; } else { userProfile.dailyTime = Number(userProfile.dailyTime); }
+                if (!userProfile.vocab) { userProfile.vocab = {}; needsUpdate = true; }
+                if (!userProfile.verbs) { userProfile.verbs = {}; needsUpdate = true; }
+                if (!userProfile.todayLearnedWords) { userProfile.todayLearnedWords =[]; needsUpdate = true; }
+                if (!Array.isArray(userProfile.completedChapters)) { userProfile.completedChapters =[]; needsUpdate = true; }
+                if (!userProfile.nickname) { userProfile.nickname = window.currentUser.displayName || "Študent"; needsUpdate = true; }
+                if (userProfile.isApproved === undefined) { userProfile.isApproved = isAdmin; needsUpdate = true; }
+
+                if(userProfile.lastActive !== today) {
+                    userProfile.yesterdayTime = userProfile.dailyTime || 0;
+                    userProfile.yesterdayLearnedWords = userProfile.todayLearnedWords ||[];
+                    if(userProfile.lastActive) {
+                        const days = Math.ceil(Math.abs(new Date(today) - new Date(userProfile.lastActive))/(1000*3600*24));
+                        if(days > 1) userProfile.points = Math.max(0, userProfile.points - 2);
+                    }
+                    userProfile.dailyTime = 0; userProfile.todayLearnedWords =[]; userProfile.lastActive = today;
+                    showDaily = true; needsUpdate = true;
+                }
+
+                if(needsUpdate) {
+                    try { await ref.set(userProfile, {merge: true}); } catch(e) { console.error("Update chyba: ", e); }
+                }
+            } else {
+                userProfile = { 
+                    email: window.currentUser.email, nickname: window.currentUser.displayName || "Študent",
+                    points: 0, dailyTime: 0, lastActive: today, completedChapters: [], vocab: {}, verbs: {}, 
+                    todayLearnedWords:[], isApproved: isAdmin 
+                };
+                try { await ref.set(userProfile); } catch(e) { console.error(e); }
+            }
+
+            if(!userProfile.isApproved) {
+                document.getElementById('screen-dashboard').classList.add('hidden');
+                document.getElementById('screen-waiting').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('screen-waiting').classList.add('hidden');
+            document.getElementById('screen-dashboard').classList.remove('hidden');
+            fillVerbsPool(); updateUI(); startTimer();
+
+            if(showDaily && (userProfile.yesterdayTime > 0 || userProfile.yesterdayLearnedWords.length > 0)) {
+                document.getElementById('sum-time').innerText = userProfile.yesterdayTime + "m";
+                document.getElementById('sum-words').innerText = userProfile.yesterdayLearnedWords.length;
+                document.getElementById('sum-words-list').innerText = userProfile.yesterdayLearnedWords.join(", ") || "Iba tréning lekcií.";
+                document.getElementById('modal-daily').classList.remove('hidden');
+            }
+        }
+
+        async function openAdminPanel() {
+            document.getElementById('modal-admin').classList.remove('hidden');
+            const list = document.getElementById('admin-user-list'); list.innerHTML = "Načítavam...";
+            const snaps = await window.fbDb.collection("users").get();
+            list.innerHTML = "";
+            snaps.forEach(doc => {
+                let u = doc.data(); let uid = doc.id;
+                let btn = u.isApproved ? 
+                    `<button onclick="toggleApprove('${uid}', false)" style="background:red; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">Blokovať</button>` : 
+                    `<button onclick="toggleApprove('${uid}', true)" style="background:green; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;">Schváliť</button>`;
+                list.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
+                    <div><b>${u.nickname}</b><br><span style="font-size:11px;">${u.email}</span></div>${btn}</div>`;
+            });
+        }
+        window.toggleApprove = async function(uid, state) {
+            await window.fbDb.collection("users").doc(uid).update({isApproved: state}); openAdminPanel();
+        }
+
+        function updateUI() {
+            document.getElementById('user-nick').innerText = userProfile.nickname;
+            document.getElementById('disp-points').innerText = Math.floor(userProfile.points);
+            document.getElementById('disp-time').innerText = userProfile.dailyTime + "m";
+            let vOk = Object.values(userProfile.vocab || {}).filter(i => i.scoreEn>=3 && i.scoreSk>=3).length;
+            let verbOk = Object.values(userProfile.verbs || {}).filter(i => i.score>=6).length;
+            document.getElementById('disp-vocab').innerText = vOk;
+            document.getElementById('disp-verbs').innerText = verbOk;
+            renderLevels();
+        }
+
+        function changeNick() {
+            let n = prompt("Nová prezývka:", userProfile.nickname);
+            if(n && n.trim()!=="") { 
+                userProfile.nickname = n.trim(); 
+                window.fbDb.collection("users").doc(window.currentUser.uid).update({nickname: n.trim()}); 
+                updateUI(); 
+            }
+        }
+
+        function switchTab(t) {
+            ['lessons','vocab','verbs','leaderboard'].forEach(x => { document.getElementById('view-'+x).classList.add('hidden'); document.getElementById('tab-btn-'+x).classList.remove('active'); });
+            document.getElementById('view-'+t).classList.remove('hidden');
+            document.getElementById('tab-btn-'+t).classList.add('active');
+            if(t==='vocab' || t==='verbs') renderDrillLists(t);
+            if(t==='leaderboard') loadLeaderboard();
+        }
+
+        function renderLevels() {
+            const lvls =["A1","A2","B1","B2","C1","C2"];
+            const g = document.getElementById('grid-levels'); g.innerHTML="";
+            lvls.forEach(l => {
+                let d = document.createElement('div'); d.className="item-card"; d.innerHTML=`<h3>${l}</h3>`;
+                d.addEventListener('click', () => selectLevel(l)); g.appendChild(d);
+            });
+        }
+
+        function selectLevel(l) {
+            state.currentLevel = l;
+            document.getElementById('level-select').classList.add('hidden');
+            document.getElementById('lesson-select').classList.remove('hidden');
+            document.getElementById('current-level-title').innerText = "Úroveň "+l;
+            const g = document.getElementById('grid-lessons-list'); g.innerHTML="";
+            for(let i=1; i<=10; i++) {
+                let d = document.createElement('div'); d.className="item-card"; d.innerHTML=`Lekcia ${i}`;
+                d.addEventListener('click', () => selectLesson(i<10?'0'+i:i)); g.appendChild(d);
+            }
+        }
+        
+        function selectLesson(n) {
+            state.currentLesson = n;
+            document.getElementById('lesson-select').classList.add('hidden');
+            document.getElementById('chapter-select').classList.remove('hidden');
+            document.getElementById('current-lesson-title').innerText = `${state.currentLevel} - Lekcia ${n}`;
+            const g = document.getElementById('grid-chapters'); g.innerHTML="";
+            for(let i=1; i<=10; i++) {
+                let id = `${state.currentLevel}-L${state.currentLesson}-C${i<10?'0'+i:i}`;
+                let isDone = userProfile.completedChapters.includes(id);
+                let prevId = i===1 ? null : `${state.currentLevel}-L${state.currentLesson}-C${(i-1)<10?'0'+(i-1):(i-1)}`;
+                let locked = prevId && !userProfile.completedChapters.includes(prevId);
+                let d = document.createElement('div'); d.className = `item-card ${isDone?'completed':(locked?'locked':'')}`;
+                d.innerHTML = `<div style="font-weight:900; margin-bottom:5px;">Kapitola ${i}</div><div style="font-size:1.8em;">${isDone?'✅':(locked?'🔒':'🔓')}</div>`;
+                if(!locked) d.addEventListener('click', () => startChapter(id));
+                g.appendChild(d);
+            }
+        }
+
+        async function startChapter(id) {
+            const doc = await window.fbDb.collection("chapters").doc(id).get();
+            if(!doc.exists) return alert("Táto kapitola ešte nie je pridaná na server.");
+            state.activeChapterData = doc.data(); state.activeChapterData.id = id;
+            userProfile.lastLessonId = id; 
+            window.fbDb.collection("users").doc(window.currentUser.uid).update({lastLessonId: id});
+
+            if(state.activeChapterData.vocab) {
+                let changed = false;
+                state.activeChapterData.vocab.forEach(v => {
+                    if(!userProfile.vocab[v.en]) { userProfile.vocab[v.en]={sk:v.sk, scoreEn:0, scoreSk:0}; changed=true; }
+                });
+                if(changed) window.fbDb.collection("users").doc(window.currentUser.uid).update({vocab: userProfile.vocab});
+            }
+            state.activeRound = 1; state.activeQueue =[...state.activeChapterData.sentences];
+            document.getElementById('screen-dashboard').classList.add('hidden');
+            document.getElementById('screen-training').classList.remove('hidden');
+            renderRound();
+        }
+
+        function renderRound() {
+            const s = state.activeQueue[0];
+            const area = document.getElementById('train-interaction'); area.innerHTML="";
+            const fb = document.getElementById('train-feedback'); fb.innerText=""; fb.style.backgroundColor="transparent";
+            document.getElementById('controls-standard').classList.remove('hidden');
+            document.getElementById('controls-test').classList.add('hidden');
+            document.getElementById('bar-timer-container').classList.add('hidden');
+            document.getElementById('btn-next').classList.add('hidden');
+            document.getElementById('btn-check').classList.remove('hidden');
+
+            let total = state.activeChapterData.sentences.length;
+            let current = total - state.activeQueue.length;
+            document.getElementById('bar-progress').style.width = ((current/total)*100) + "%";
+            document.getElementById('train-counter').innerText = `${current}/${total}`;
+
+            let titles =["1. Kolo: Skladanie", "2. Kolo: Preklad", "3. Kolo: Diktát"];
+            document.getElementById('train-info-round').innerText = titles[state.activeRound-1];
+
+            if(!s) return finishRound();
+            currentQuestionEn = s.en;
+            
+            const qt = document.getElementById('train-question');
+            const sb = document.getElementById('btn-speak'); sb.style.display='none';
+
+            if(state.activeRound===3) {
+                qt.innerText="🎧 Diktát (Napíš EN)"; sb.style.display='inline-block';
+                setTimeout(()=>speakCurrent(s.en), 400);
+            } else { qt.innerText = s.sk; }
+
+            if(state.activeRound===1) {
+                state.buildCurrentWords =[];
+                let wordsRaw = s.en.replace(/[.,?!]/g,"").split(" ");
+                let extra = dummyWords[Math.floor(Math.random() * dummyWords.length)];
+                let att = 0; while(wordsRaw.map(w=>w.toLowerCase()).includes(extra) && att<20){ extra = dummyWords[Math.floor(Math.random() * dummyWords.length)]; att++; }
+                wordsRaw.push(extra);
+                
+                let shuffled = wordsRaw.map((w,i) => ({word: w, id: i})).sort(()=>Math.random()-0.5);
+                let box = document.createElement('div'); box.id="build-box"; area.appendChild(box);
+                let pool = document.createElement('div'); pool.id="pool-box"; area.appendChild(pool);
+
+                shuffled.forEach(wObj => {
+                    let b = document.createElement('button'); b.className="word-btn"; b.innerText=wObj.word; b.dataset.id = wObj.id;
+                    b.addEventListener('click', () => { b.classList.add('used'); state.buildCurrentWords.push(wObj); renderBuildBox(); });
+                    pool.appendChild(b);
+                });
+            } else {
+                let i = document.createElement('input'); i.type="text"; i.id="user-inp"; i.placeholder="Napíš sem..."; i.autocomplete="off"; 
+                i.addEventListener('keypress', (e) => { if(e.key==="Enter") checkRoundAnswer(); });
+                area.appendChild(i); setTimeout(()=>i.focus(),100);
+            }
+        }
+
+        function renderBuildBox() {
+            const box = document.getElementById('build-box'); box.innerHTML = "";
+            state.buildCurrentWords.forEach((wObj, idx) => {
+                let badge = document.createElement('div'); badge.className = "built-word"; badge.innerText = wObj.word;
+                badge.addEventListener('click', () => {
+                    state.buildCurrentWords.splice(idx, 1);
+                    document.querySelector(`.word-btn[data-id="${wObj.id}"]`).classList.remove('used');
+                    renderBuildBox();
+                });
+                box.appendChild(badge);
+            });
+        }
+
+        function checkRoundAnswer() {
+            const s = state.activeQueue[0];
+            let v = state.activeRound === 1 ? state.buildCurrentWords.map(w=>w.word).join(" ") : document.getElementById('user-inp').value;
+            v = v.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+            let c = s.en.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+            
+            const fb = document.getElementById('train-feedback');
+            document.getElementById('btn-check').classList.add('hidden');
+            document.getElementById('btn-next').classList.remove('hidden');
+
+            if(v===c) {
+                fb.innerText="✅ Fantastické!"; fb.style.backgroundColor="#ecfdf5"; fb.style.color="var(--success)";
+                speakCurrent(s.en);
+            } else {
+                fb.innerText=`❌ Ups! Má byť:\n"${s.en}"`; fb.style.backgroundColor="#fef2f2"; fb.style.color="var(--danger)";
+                speakCurrent(s.en); state.activeQueue.push(s); 
+            }
+        }
+
+        function nextRoundItem() { state.activeQueue.shift(); renderRound(); }
+
+        function finishRound() {
+            if(state.activeRound < 3) { state.activeRound++; state.activeQueue =[...state.activeChapterData.sentences]; renderRound(); } 
+            else { startTestRound(); }
+        }
+
+        function startTestRound() {
+            state.activeRound = 4; document.getElementById('train-info-round').innerText = "ZÁVEREČNÝ TEST";
+            state.activeQueue = [...state.activeChapterData.sentences].sort(()=>Math.random()-0.5).slice(0, 6);
+            state.testIndex = 0; state.testAnswers = ["", "", "", "", "", ""]; state.testTimeLeft = 360; 
+            
+            document.getElementById('bar-timer-container').classList.remove('hidden');
+            state.testTimer = setInterval(() => {
+                state.testTimeLeft--; document.getElementById('bar-timer').style.width = ((state.testTimeLeft / 360) * 100) + "%";
+                if(state.testTimeLeft <= 0) evaluateTest(); 
+            }, 1000);
+            renderTestItem();
+        }
+
+        function renderTestItem() {
+            const area = document.getElementById('train-interaction'); area.innerHTML = "";
+            document.getElementById('train-feedback').innerText = ""; document.getElementById('btn-speak').style.display = 'none';
+            document.getElementById('controls-standard').classList.add('hidden'); document.getElementById('controls-test').classList.remove('hidden');
+            document.getElementById('bar-progress').style.width = ((state.testIndex / 6) * 100) + "%";
+            document.getElementById('train-counter').innerText = `Veta ${state.testIndex + 1}/6`;
+            document.getElementById('train-question').innerText = state.activeQueue[state.testIndex].sk;
+
+            let inp = document.createElement('input'); inp.type = "text"; inp.id = "test-inp"; 
+            inp.value = state.testAnswers[state.testIndex]; inp.placeholder = "Sem zadaj preklad..."; inp.autocomplete = "off";
+            inp.addEventListener('input', (e) => state.testAnswers[state.testIndex] = e.target.value);
+            inp.addEventListener('keypress', (e) => { if(e.key==="Enter") { if(state.testIndex<5) testNav(1); else evaluateTest(); } });
+            area.appendChild(inp); setTimeout(()=>inp.focus(), 100);
+
+            document.getElementById('btn-test-next').classList.toggle('hidden', state.testIndex === 5);
+            document.getElementById('btn-test-finish').classList.toggle('hidden', state.testIndex !== 5);
+        }
+
+        function testNav(dir) { let newIdx = state.testIndex + dir; if(newIdx >= 0 && newIdx < 6) { state.testIndex = newIdx; renderTestItem(); } }
+
+        async function evaluateTest() {
+            clearInterval(state.testTimer); let correctCount = 0;
+            let html = "<h3 style='border-bottom:2px solid #e5e7eb; padding-bottom:10px;'>Výsledok Testu</h3>";
+            for(let i=0; i<6; i++) {
+                let u = (state.testAnswers[i]||"").trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+                let c = state.activeQueue[i].en.trim().toLowerCase().replace(/[.,?!]/g,"").replace(/\s+/g," ");
+                let isOk = (u === c); if(isOk) correctCount++;
+                html += `<div style="padding:10px 0; border-bottom:1px dashed #e5e7eb;">
+                    <div style="font-size:0.85em; color:var(--text-muted);">${state.activeQueue[i].sk}</div>
+                    <div style="color:${isOk?'var(--success)':'var(--danger)'}; font-weight:bold;">${isOk?'✅':'❌'} Tvoje: ${state.testAnswers[i]||'<i>-</i>'}</div>
+                    ${!isOk ? `<div style="font-weight:bold; color:var(--text-main); font-size:0.9em; margin-top:3px;">👉 ${state.activeQueue[i].en}</div>` : ''}</div>`;
+            }
+
+            const area = document.getElementById('train-interaction'); area.innerHTML = html;
+            document.getElementById('controls-test').classList.add('hidden');
+            document.getElementById('train-question').innerText = `Skóre: ${correctCount}/6`; document.getElementById('bar-progress').style.width = "100%";
+
+            if(correctCount === 6) {
+                userProfile.points += 5; 
+                if(!userProfile.completedChapters.includes(state.activeChapterData.id)) userProfile.completedChapters.push(state.activeChapterData.id);
+                await window.fbDb.collection("users").doc(window.currentUser.uid).update({points: userProfile.points, completedChapters: userProfile.completedChapters});
+                let b = document.createElement('button'); b.className="btn"; b.innerText="Paráda! Späť na lekcie"; b.addEventListener('click', quitTraining); area.appendChild(b);
+            } else {
+                let b = document.createElement('button'); b.className="btn"; b.style.background="var(--warning)"; b.style.color="#000"; b.innerText="Skúsiť Diktát znova";
+                b.addEventListener('click', () => { state.activeRound = 3; state.activeQueue = [...state.activeChapterData.sentences]; renderRound(); });
+                area.appendChild(b);
+            }
+        }
+
+        function quitTraining() {
+            clearInterval(state.testTimer); document.getElementById('screen-training').classList.add('hidden');
+            document.getElementById('screen-dashboard').classList.remove('hidden');
+            if(state.currentLesson) selectLesson(state.currentLesson); updateUI();
+        }
+
+        function toggleList(type, tab) {
+            document.getElementById(`btn-${type==='vocab'?'voc':'vrb'}-learning`).classList.remove('active'); document.getElementById(`btn-${type==='vocab'?'voc':'vrb'}-learned`).classList.remove('active');
+            document.getElementById(`${type}-list-learning`).classList.add('hidden'); document.getElementById(`${type}-list-learned`).classList.add('hidden');
+            document.getElementById(`btn-${type==='vocab'?'voc':'vrb'}-${tab}`).classList.add('active'); document.getElementById(`${type}-list-${tab}`).classList.remove('hidden');
+        }
+
+        function renderDrillLists(type) {
+            const lrn = document.getElementById(`${type}-list-learning`); lrn.innerHTML="";
+            const lnd = document.getElementById(`${type}-list-learned`); lnd.innerHTML="";
+            const data = userProfile[type] || {}; let cLrn = 0, cLnd = 0;
+
+            if(type === 'vocab') {
+                Object.keys(data).forEach(k => {
+                    let d = data[k]; let done = (d.scoreEn>=3 && d.scoreSk>=3);
+                    let h = `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid #f3f4f6;">
+                        <div><b>${k}</b> <span style="color:var(--text-muted);font-size:0.85em;">(${d.sk})</span></div>
+                        <div style="font-size:0.8em; font-weight:900; color:${done?'var(--success)':'var(--primary)'};">EN:${d.scoreEn}|SK:${d.scoreSk}</div></div>`;
+                    if(done){lnd.innerHTML+=h; cLnd++;} else {lrn.innerHTML+=h; cLrn++;}
+                });
+            } else {
+                Object.keys(data).forEach(k => {
+                    let d = data[k]; let done = (d.score>=6);
+                    let h = `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid #f3f4f6;">
+                        <div><b style="color:var(--danger);">${d.sk}</b> <span style="color:var(--text-muted);font-size:0.85em;">(${d.v1}, ${d.v2}, ${d.v3})</span></div>
+                        <div style="font-size:0.8em; font-weight:900; color:${done?'var(--success)':'var(--danger)'};">${d.score}/6</div></div>`;
+                    if(done){lnd.innerHTML+=h; cLnd++;} else {lrn.innerHTML+=h; cLrn++;}
+                });
+            }
+            document.getElementById(`btn-${type==='vocab'?'voc':'vrb'}-learning`).innerText = `Učím sa (${cLrn})`;
+            document.getElementById(`btn-${type==='vocab'?'voc':'vrb'}-learned`).innerText = `Naučené (${cLnd})`;
+        }
+
+        function fillVerbsPool() {
+            let learningCount = Object.values(userProfile.verbs).filter(v => v.score < 6).length;
+            if(learningCount < 10) {
+                let learnedKeys = Object.keys(userProfile.verbs);
+                for(let v of MASTER_VERBS) {
+                    if(!learnedKeys.includes(v.sk)) { userProfile.verbs[v.sk] = { sk: v.sk, v1: v.v1, v2: v.v2, v3: v.v3, score: 0 }; learningCount++; if(learningCount >= 10) break; }
+                }
+                window.fbDb.collection("users").doc(window.currentUser.uid).update({verbs: userProfile.verbs});
+            }
+        }
+
+        function startDrill(type) {
+            state.drillMode = type; state.drillQueue = []; const data = userProfile[type] || {};
+            if(type === 'vocab') { Object.keys(data).forEach(k => { if(data[k].scoreEn<3 || data[k].scoreSk<3) state.drillQueue.push({id:k, data:data[k]}); }); } 
+            else { fillVerbsPool(); Object.keys(data).forEach(k => { if(data[k].score<6) state.drillQueue.push({id:k, data:data[k]}); }); }
+
+            if(state.drillQueue.length===0) return alert("Všetko v tejto sekcii je zatiaľ naučené!");
+            document.getElementById('screen-dashboard').classList.add('hidden'); document.getElementById('screen-drill').classList.remove('hidden');
+            document.getElementById('drill-input').classList.toggle('hidden', type !== 'vocab'); document.getElementById('drill-verbs-inputs').classList.toggle('hidden', type !== 'verbs');
+            nextDrillItem();
+        }
+
+        function nextDrillItem() {
+            if(state.drillQueue.length===0) return quitDrill();
+            state.currentDrillItem = state.drillQueue[Math.floor(Math.random() * state.drillQueue.length)]; let d = state.currentDrillItem.data;
+            const fb = document.getElementById('drill-feedback'); fb.innerText=""; fb.style.backgroundColor="transparent";
+            document.getElementById('drill-check').classList.remove('hidden'); document.getElementById('drill-next').classList.add('hidden');
+
+            if(state.drillMode === 'vocab') {
+                state.drillDir = (d.scoreEn<3 && d.scoreSk<3) ? (Math.random()>0.5?'en_sk':'sk_en') : (d.scoreEn<3?'sk_en':'en_sk');
+                document.getElementById('drill-subtitle').innerText = "Prelož Slovo"; document.getElementById('drill-word').innerText = state.drillDir==='en_sk' ? state.currentDrillItem.id : d.sk;
+                let inp = document.getElementById('drill-input'); inp.value=""; inp.focus();
+            } else {
+                document.getElementById('drill-subtitle').innerText = "Všetky 3 Tvary Slovesa"; document.getElementById('drill-word').innerText = d.sk; document.getElementById('drill-word').style.color = "var(--danger)";
+                document.getElementById('v-in-1').value=""; document.getElementById('v-in-2').value=""; document.getElementById('v-in-3').value=""; document.getElementById('v-in-1').focus();
+            }
+        }
+
+        function checkDrill() {
+            const item = state.currentDrillItem; let isCorrect = false; let msg = ""; const fb = document.getElementById('drill-feedback');
+            if(state.drillMode === 'vocab') {
+                let v = document.getElementById('drill-input').value.trim().toLowerCase();
+                isCorrect = (state.drillDir==='en_sk') ? (v===item.data.sk.toLowerCase()) : (v===item.id.toLowerCase()); msg = state.drillDir==='en_sk' ? item.data.sk : item.id;
+            } else {
+                let v1 = document.getElementById('v-in-1').value.trim().toLowerCase(); let v2 = document.getElementById('v-in-2').value.trim().toLowerCase(); let v3 = document.getElementById('v-in-3').value.trim().toLowerCase();
+                let c1 = item.data.v1.toLowerCase(), c2 = item.data.v2.toLowerCase(), c3 = item.data.v3.toLowerCase();
+                let check2 = c2.includes("/") ? c2.split("/").includes(v2) || v2===c2 : v2===c2;
+                isCorrect = (v1===c1 && check2 && v3===c3); msg = `${c1}, ${c2}, ${c3}`;
+            }
+
+            if(isCorrect) {
+                fb.innerText = "✅ Výborne!"; fb.style.backgroundColor="#ecfdf5"; fb.style.color="var(--success)";
+                if(state.drillMode==='vocab') {
+                    if(state.drillDir==='en_sk') item.data.scoreSk++; else item.data.scoreEn++;
+                    if(item.data.scoreEn>=3 && item.data.scoreSk>=3) markAsLearnedToday(item.id);
+                } else {
+                    item.data.score++; if(item.data.score>=6) markAsLearnedToday(item.data.sk);
+                }
+                userProfile.points += 0.2; updateDrillDb();
+            } else {
+                fb.innerText = `❌ Správne: ${msg}`; fb.style.backgroundColor="#fef2f2"; fb.style.color="var(--danger)";
+            }
+            document.getElementById('drill-check').classList.add('hidden'); document.getElementById('drill-next').classList.remove('hidden');
+        }
+
+        function markAsLearnedToday(word) {
+            if(!userProfile.todayLearnedWords) userProfile.todayLearnedWords =[];
+            if(!userProfile.todayLearnedWords.includes(word)) userProfile.todayLearnedWords.push(word);
+        }
+
+        async function updateDrillDb() {
+            await window.fbDb.collection("users").doc(window.currentUser.uid).update({
+                vocab: userProfile.vocab || {}, verbs: userProfile.verbs || {}, 
+                points: userProfile.points, todayLearnedWords: userProfile.todayLearnedWords ||
