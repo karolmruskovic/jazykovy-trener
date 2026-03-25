@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Language Master (v19.1 - Bug Fixes)</title>
+    <title>Multi-Language Master (v19.2 - Bulletproof Fix)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -488,7 +488,6 @@
                 if(userProfile.de_wordsLearnedToday === undefined) userProfile.de_wordsLearnedToday = 0;
                 if(userProfile.de_inProgressChapter === undefined) userProfile.de_inProgressChapter = null;
             }
-            // Zabezpečíme pre EN bezpečný objekt Verbs (ak pochádza zo starej verzie bez neho)
             if (!userProfile.irregularVerbs || !userProfile.irregularVerbs.learning) { 
                 userProfile.irregularVerbs = { learning: [], learned: [] }; 
             }
@@ -503,53 +502,72 @@
             }
         };
 
+        // BEZPEČNÉ BIND EVENTS PRE OCHRANU PRED PÁDMI (Null is not an object fix)
         function bindEvents() {
-            document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
-            document.getElementById('lang-de').addEventListener('click', () => switchLang('de'));
+            const addBtnEv = (id, fn) => {
+                const btn = document.getElementById(id);
+                if (btn) btn.addEventListener('click', fn);
+                else console.warn(`Element with ID '${id}' not found. Cannot bind event.`);
+            };
 
-            document.getElementById('tab-btn-lessons').addEventListener('click', () => switchTab('lessons'));
-            document.getElementById('tab-btn-vocab').addEventListener('click', () => switchTab('vocab'));
-            document.getElementById('tab-btn-verbs').addEventListener('click', () => switchTab('verbs'));
-            document.getElementById('tab-btn-leaderboard').addEventListener('click', () => switchTab('leaderboard'));
+            addBtnEv('lang-en', () => switchLang('en'));
+            addBtnEv('lang-de', () => switchLang('de'));
+
+            addBtnEv('tab-btn-lessons', () => switchTab('lessons'));
+            addBtnEv('tab-btn-vocab', () => switchTab('vocab'));
+            addBtnEv('tab-btn-verbs', () => switchTab('verbs'));
+            addBtnEv('tab-btn-leaderboard', () => switchTab('leaderboard'));
             
-            document.getElementById('btn-change-nick').addEventListener('click', changeNick);
-            document.getElementById('btn-admin').addEventListener('click', loadAdminPanel);
+            addBtnEv('btn-change-nick', changeNick);
+            addBtnEv('btn-admin', loadAdminPanel);
             
-            document.getElementById('btn-back-levels').addEventListener('click', showLevels);
-            document.getElementById('btn-back-lessons').addEventListener('click', showLessons);
+            addBtnEv('btn-back-levels', showLevels);
+            addBtnEv('btn-back-lessons', showLessons);
             
-            document.getElementById('btn-voc-learning').addEventListener('click', () => toggleVocabList('learning'));
-            document.getElementById('btn-voc-learned').addEventListener('click', () => toggleVocabList('learned'));
-            document.getElementById('btn-start-vocab').addEventListener('click', startVocabDrill);
-            document.getElementById('btn-quit-vocab').addEventListener('click', stopVocabDrill);
-            document.getElementById('drill-check').addEventListener('click', checkVocab);
-            document.getElementById('drill-next').addEventListener('click', nextVocab);
-            document.getElementById('drill-input').addEventListener('keypress', (e) => { if(e.key==='Enter') { document.getElementById('drill-check').classList.contains('hidden') ? nextVocab() : checkVocab(); } });
+            addBtnEv('btn-voc-learning', () => toggleVocabList('learning'));
+            addBtnEv('btn-voc-learned', () => toggleVocabList('learned'));
+            addBtnEv('btn-start-vocab', startVocabDrill);
+            addBtnEv('btn-quit-vocab', stopVocabDrill);
+            addBtnEv('drill-check', checkVocab);
+            addBtnEv('drill-next', nextVocab);
+
+            const drillInp = document.getElementById('drill-input');
+            if(drillInp) {
+                drillInp.addEventListener('keypress', (e) => { 
+                    if(e.key==='Enter') { document.getElementById('drill-check').classList.contains('hidden') ? nextVocab() : checkVocab(); } 
+                });
+            }
             
-            document.getElementById('btn-verbs-learning').addEventListener('click', () => toggleVerbsList('learning'));
-            document.getElementById('btn-verbs-learned').addEventListener('click', () => toggleVerbsList('learned'));
-            document.getElementById('btn-start-verbs').addEventListener('click', startVerbsDrill);
-            document.getElementById('btn-quit-verbs').addEventListener('click', stopVerbsDrill);
-            document.getElementById('drill-verb-check').addEventListener('click', checkVerbDrill);
-            document.getElementById('drill-verb-next').addEventListener('click', nextVerbDrill);
+            addBtnEv('btn-verbs-learning', () => toggleVerbsList('learning'));
+            addBtnEv('btn-verbs-learned', () => toggleVerbsList('learned'));
+            addBtnEv('btn-start-verbs', startVerbsDrill);
+            addBtnEv('btn-quit-verbs', stopVerbsDrill);
+            addBtnEv('drill-verb-check', checkVerbDrill);
+            addBtnEv('drill-verb-next', nextVerbDrill);
+
             ['v-inp-1','v-inp-2','v-inp-3'].forEach(id => {
-                document.getElementById(id).addEventListener('keypress', (e) => { if(e.key==='Enter') { document.getElementById('drill-verb-check').classList.contains('hidden') ? nextVerbDrill() : checkVerbDrill(); } });
+                const el = document.getElementById(id);
+                if(el) {
+                    el.addEventListener('keypress', (e) => { 
+                        if(e.key==='Enter') { document.getElementById('drill-verb-check').classList.contains('hidden') ? nextVerbDrill() : checkVerbDrill(); } 
+                    });
+                }
             });
 
-            document.getElementById('btn-quit-training').addEventListener('click', quitTraining);
-            document.getElementById('btn-speak').addEventListener('click', () => speakCurrent(currentQuestionForeign));
-            document.getElementById('btn-check').addEventListener('click', checkAnswer);
-            document.getElementById('btn-next').addEventListener('click', nextItem);
+            addBtnEv('btn-quit-training', quitTraining);
+            addBtnEv('btn-speak', () => speakCurrent(currentQuestionForeign));
+            addBtnEv('btn-check', checkAnswer);
+            addBtnEv('btn-next', nextItem);
             
-            document.getElementById('btn-test-prev').addEventListener('click', () => testNav(-1));
-            document.getElementById('btn-test-next').addEventListener('click', () => testNav(1));
-            document.getElementById('btn-test-finish').addEventListener('click', evaluateTest);
+            addBtnEv('btn-test-prev', () => testNav(-1));
+            addBtnEv('btn-test-next', () => testNav(1));
+            addBtnEv('btn-test-finish', evaluateTest);
             
-            document.getElementById('btn-close-grammar').addEventListener('click', () => document.getElementById('modal-grammar').classList.add('hidden'));
-            document.getElementById('btn-close-admin').addEventListener('click', () => document.getElementById('modal-admin').classList.add('hidden'));
+            addBtnEv('btn-close-grammar', () => document.getElementById('modal-grammar').classList.add('hidden'));
+            addBtnEv('btn-close-admin', () => document.getElementById('modal-admin').classList.add('hidden'));
             
-            document.getElementById('btn-ds-close').addEventListener('click', () => document.getElementById('modal-daily-summary').classList.add('hidden'));
-            document.getElementById('btn-ds-continue').addEventListener('click', () => {
+            addBtnEv('btn-ds-close', () => document.getElementById('modal-daily-summary').classList.add('hidden'));
+            addBtnEv('btn-ds-continue', () => {
                 document.getElementById('modal-daily-summary').classList.add('hidden');
                 autoResumeLesson();
             });
