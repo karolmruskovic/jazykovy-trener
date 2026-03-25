@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Language Master (v19.0 - EN/DE & AutoSave)</title>
+    <title>Multi-Language Master (v19.1 - Bug Fixes)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,6 +88,11 @@
         .verb-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; }
         .verb-input-box { text-align: center; }
         .verb-input-box label { font-size: 0.8em; color: var(--text-muted); font-weight: bold; text-transform: uppercase;}
+        
+        /* Admin Table */
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+        .admin-table th, .admin-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        .admin-table th { background: #f8fafc; color: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -297,6 +302,20 @@
         </div>
     </div>
 
+    <div id="modal-admin" class="hidden modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+            <h3>👑 Administrácia Používateľov</h3>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table class="admin-table">
+                    <thead><tr><th>Meno</th><th>Email</th><th>Skóre</th><th>Stav</th><th>Akcia</th></tr></thead>
+                    <tbody id="admin-user-list"></tbody>
+                </table>
+            </div>
+            <button id="btn-close-admin" class="btn-outline" style="margin-top:20px; width:100%;">Zavrieť</button>
+        </div>
+    </div>
+
+
     <script>
         // ==========================================
         // 1. FIREBASE INITIALIZATION
@@ -462,18 +481,26 @@
         function initLangData(lang) {
             if(lang === 'de') {
                 if(userProfile.de_points === undefined) userProfile.de_points = 0;
-                if(userProfile.de_completedChapters === undefined) userProfile.de_completedChapters = [];
+                if(userProfile.de_completedChapters === undefined || !Array.isArray(userProfile.de_completedChapters)) userProfile.de_completedChapters = [];
                 if(userProfile.de_vocab === undefined) userProfile.de_vocab = {};
-                if(userProfile.de_irregularVerbs === undefined) userProfile.de_irregularVerbs = { learning: [], learned: [] };
+                if(userProfile.de_irregularVerbs === undefined || !userProfile.de_irregularVerbs.learning) userProfile.de_irregularVerbs = { learning: [], learned: [] };
                 if(userProfile.de_dailyTime === undefined) userProfile.de_dailyTime = 0;
                 if(userProfile.de_wordsLearnedToday === undefined) userProfile.de_wordsLearnedToday = 0;
                 if(userProfile.de_inProgressChapter === undefined) userProfile.de_inProgressChapter = null;
             }
+            // Zabezpečíme pre EN bezpečný objekt Verbs (ak pochádza zo starej verzie bez neho)
+            if (!userProfile.irregularVerbs || !userProfile.irregularVerbs.learning) { 
+                userProfile.irregularVerbs = { learning: [], learned: [] }; 
+            }
         }
 
         window.initApplication = async function() {
-            bindEvents();
-            await loadProfile();
+            try {
+                bindEvents();
+                await loadProfile();
+            } catch (err) {
+                document.body.innerHTML = '<div style="padding:40px;text-align:center;color:red;"><h2>Kritická chyba aplikácie</h2><p>' + err.message + '</p><p>Skúste obnoviť stránku (F5).</p></div>';
+            }
         };
 
         function bindEvents() {
@@ -547,16 +574,15 @@
                 if (!userProfile.vocab) { userProfile.vocab = {}; needsUpdate = true; }
                 if (!Array.isArray(userProfile.completedChapters)) { userProfile.completedChapters = []; needsUpdate = true; }
                 if (!userProfile.nickname) { userProfile.nickname = window.currentUser.displayName || "Študent"; needsUpdate = true; }
-                if (!userProfile.irregularVerbs) { userProfile.irregularVerbs = { learning: [], learned: [] }; needsUpdate = true; }
                 if (userProfile.inProgressChapter === undefined) { userProfile.inProgressChapter = null; needsUpdate = true; }
 
-                initLangData('de'); // Ensure DE objects exist
-                switchLang(currentLang, false); // Adjust UI visually without resetting everything yet
+                initLangData('de'); 
+                switchLang(currentLang, false); 
 
                 if(userProfile.lastActive !== today) {
                     if(userProfile.lastActive) {
                         const days = Math.ceil(Math.abs(new Date(today) - new Date(userProfile.lastActive))/(1000*3600*24));
-                        if(days > 1) {
+                        if(days > 1 && !isNaN(days)) {
                             userProfile.points = Math.max(0, userProfile.points - 2); 
                             userProfile.de_points = Math.max(0, (userProfile.de_points||0) - 2); 
                         }
@@ -638,7 +664,8 @@
             Object.values(getVocab()).forEach(i => { if(i.scoreEn>=3 && i.scoreSk>=3) mastered++; });
             document.getElementById('disp-vocab').innerText = mastered;
 
-            let verbsMastered = getVerbs().learned?.length || 0;
+            let vData = getVerbs();
+            let verbsMastered = (vData && vData.learned) ? vData.learned.length : 0;
             document.getElementById('disp-verbs').innerText = verbsMastered;
 
             renderLevels();
@@ -805,8 +832,8 @@
             if(state.activeChapterData.vocab) {
                 let changed = false; let vObj = getVocab();
                 state.activeChapterData.vocab.forEach(v => {
-                    let foreignWord = v.en || v.de; // podpora pre stary json aj pripadny novy s "de" klucom
-                    if(!foreignWord) foreignWord = Object.keys(v).find(k=>k!=='sk'); // fallback
+                    let foreignWord = v.en || v.de; 
+                    if(!foreignWord) foreignWord = Object.keys(v).find(k=>k!=='sk'); 
                     if(!vObj[foreignWord]) { vObj[foreignWord]={sk:v.sk, scoreEn:0, scoreSk:0}; changed=true; }
                 });
                 if(changed) {
@@ -1129,7 +1156,11 @@
         }
 
         function manageIrregularVerbsPool() {
-            let vData = getVerbs(); let lrn = vData.learning; let lnd = vData.learned;
+            let vData = getVerbs(); 
+            if(!vData) return;
+            if(!vData.learning) vData.learning = [];
+            if(!vData.learned) vData.learned = [];
+            let lrn = vData.learning; let lnd = vData.learned;
             let db = currentLang === 'en' ? allIrregularVerbsEN : allIrregularVerbsDE;
 
             while(lrn.length < 10) {
